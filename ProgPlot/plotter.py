@@ -8,6 +8,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import cv2
+from IPython.display import HTML
+
 
 from ProgPlot.functions import convert, get_bar
 
@@ -92,7 +94,7 @@ class BarWriter:
             num_type = [str(x) for x in num_type]
             num = int("".join(num_type))
 
-        assert txt in ["days", "minutes", "hours", "seconds", "weeks"], 'resample type is not valid'
+        assert txt in ["d", "m", "h", "s", "w","y"], 'resample type is not valid'
 
         return (txt, num)
 
@@ -104,7 +106,7 @@ class BarWriter:
         missing_dates = pd.concat([pd.Series(df.index), pd.Series(date_list)]).drop_duplicates(keep=False)
 
         # set cat name
-        cat = df.iloc[0, 0]
+        cat = df[self.category_col].unique()[0]
         temp_df = df.reset_index(drop=True).groupby(self.timeseries_col).count().reset_index()
         temp_df = temp_df.reindex(missing_dates.to_list(), fill_value=0)
         temp_df[self.category_col] = cat
@@ -118,12 +120,12 @@ class BarWriter:
         self.__data_df_temp = self.df[self.df[self.category_col].isin(self.category_values)][
             [self.category_col, self.timeseries_col, self.value_col]]
 
-        max_date = pd.to_datetime(self.df[self.timeseries_col].max())
-        min_date = pd.to_datetime(self.df[self.timeseries_col].min())
-        date_diff = self.__data_df_temp[self.timeseries_col].drop_duplicates().diff().median()
-        print(max_date, min_date, date_diff)
+        self.max_date = pd.to_datetime(self.df[self.timeseries_col].max())
+        self.min_date = pd.to_datetime(self.df[self.timeseries_col].min())
+        self.date_diff = self.__data_df_temp[self.timeseries_col].drop_duplicates().diff().median()
+        print(self.max_date, self.min_date, self.date_diff)
         # get dates
-        dt_index = pd.DatetimeIndex(pd.date_range(min_date, periods=(max_date - min_date) / date_diff, freq=date_diff))
+        dt_index = pd.DatetimeIndex(pd.date_range(self.min_date, periods=(self.max_date - self.min_date) / self.date_diff, freq=self.date_diff))
 
         # final_df = pd.DataFrame()
 
@@ -134,9 +136,9 @@ class BarWriter:
             df = self.add_missing_dates(dt_index, df)
 
             if self.__resample != None:
-                temp_df = self.do_agg(df, cat)
+                temp_df = self.do_agg(df, cat, True)
             else:
-                temp_df = df.copy()
+                temp_df = self.do_agg(df, cat, False)
 
             # temp_df = self.cumlative_df_temp.merge(temp_df,left_index=True,right_index=True)
             # temp_df.reindex(self.dt_index.index, fill_value=0)
@@ -146,26 +148,53 @@ class BarWriter:
             else:
                 final_df = pd.concat([final_df, temp_df])
 
-        final_df = final_df.reset_index(drop=True)
+        final_df = final_df.reset_index()
         final_df.columns = [self.timeseries_col, self.value_col, self.category_col]
 
         return final_df
 
+    def fix_dates(self,df):
+        df = df.reset_index(drop=True)
+        for x in range(len(df)):
+            try:
+                diff = df.loc[x + 1, self.timeseries_col] - df.loc[x, self.timeseries_col]
+                print(diff)
+                if diff * .95 < self.date_diff:
+                    df.loc[x, self.value_col] += df.loc[x + 1, self.value_col]
+                    df.drop(x + 1, inplace=True)
+            except Exception as e:
+                print(e)
+        return df
     def get_unique(self):
         for cat in self.category_values:
             yield self.__data_df_temp[self.__data_df_temp[self.category_col] == cat], cat
 
-    def do_agg(self, df, cat):
+    def do_agg(self, df, cat, resample=False):
+
 
         if self.agg_type == "count":
-            df = pd.DataFrame({"Value": df.set_index(df[self.timeseries_col]).resample(self.get_time_delta()).count()[
-                self.value_col].cumsum()})
+            if resample:
+                df = pd.DataFrame({"Value": df.set_index(df[self.timeseries_col]).resample(self.__resample).count()[
+                    self.value_col].cumsum()})
+            else:
+                df = df.groupby([self.timeseries_col]).count()[self.value_col].reset_index()
+                df.columns = [self.timeseries_col, self.value_col]
+
         elif self.agg_type == "mean":
-            df = pd.DataFrame({"Value": df.set_index(df[self.timeseries_col]).resample(self.get_time_delta()).mean()[
+            if resample:
+                df = pd.DataFrame({"Value": df.set_index(df[self.timeseries_col]).resample(self.__resample).mean()[
                 self.value_col].cumsum()})
+            else:
+                df = df.groupby([self.timeseries_col]).mean()[self.value_col].reset_index()
+                df.columns = [self.timeseries_col, self.value_col]
+
         elif self.agg_type == "sum":
-            df = pd.DataFrame({"Value": df.set_index(df[self.timeseries_col]).resample(self.get_time_delta()).sum()[
+            if resample:
+                df = pd.DataFrame({"Value": df.set_index(df[self.timeseries_col]).resample(self.__resample).sum()[
                 self.value_col].cumsum()})
+            else:
+                df = df.groupby([self.timeseries_col]).sum()[self.value_col].reset_index()
+                df.columns = [self.timeseries_col, self.value_col]
 
         df[self.category_col] = cat
 
