@@ -10,9 +10,10 @@ import seaborn as sns
 import cv2
 from IPython.display import HTML
 import ffmpy
+from matplotlib.ticker import StrMethodFormatter
 
 from ProgPlot.functions import convert, get_bar
-
+import matplotlib.dates as mdates
 
 class _base_writer:
 
@@ -76,13 +77,14 @@ class _base_writer:
                                                               "sum"], 'resample_agg is not str or not in ["count","mean","sum"]'
         self.resample_agg = resample_agg
 
-        assert type(output_agg) == str and output_agg == "cumsum" or output_agg.find(
+        assert type(output_agg) == str and output_agg == "cumsum" or output_agg == None or output_agg.find(
             "rolling") >= 0, 'output_agg is not str or not in ["rolling", "cumsum"]'
         self.output_agg = output_agg
 
         self._resample = self._check_resample_valid(resample)
 
-        self.category_values = self.df.groupby([self.category_col]).count().sort_values(self.value_col).index
+        self.category_values = list(self.df.groupby([self.category_col]).count().reset_index().
+                                    sort_values([self.value_col,self.category_col])[self.category_col])
 
     def _check_resample_valid(self, resample):
 
@@ -207,6 +209,7 @@ class _base_writer:
         else:
             pass
 
+
         if self.resample_agg == "sum":
             df = df.set_index(df[self.timeseries_col]).resample(self._resample).sum()
         elif self.resample_agg == "mean":
@@ -222,7 +225,8 @@ class _base_writer:
 
         if self.output_agg == "cumsum":
             df = pd.DataFrame({"Value": df[self.value_col].cumsum()})
-
+        elif self.output_agg == None or self.output_agg.lower() == "None":
+            pass
         elif self.output_agg.find("rolling") >= 0:
             _, num = self._check_resample_valid(self.output_agg)
             df = df.rolling(window=num).mean()
@@ -254,21 +258,96 @@ class _base_writer:
     def _assert_sort(self, sort):
         assert sort == True, "Cant display_top_x or use top_x while sort == False"
 
-    def set_display_settings(self, use_top_x=None, display_top_x=None, palette="magma", palette_keep=True, sort=True,
-                             x_label="", x_title="", fps=30, dateformat=None, figsize=(14, 8), dpi=100,
-                             time_in_seconds=None, video_file_name="output.webm", **kwargs):
+    def set_chart_options(self, x_tick_format=None, y_tick_format=None, limit_x_ticks=None, limit_y_ticks=False,
+                          dateformat=None, y_label=None, x_label=None, title=None, figsize=(14, 8), dpi=100,
+                          palette="magma", palette_keep=True, tight_layout=True):
+        """
+
+
+        :param x_tick_format: (str) either "0" string number for decimals 0=none or "%Y-%d" date time like formatting
+        :param y_tick_format: (str) either "0" string number for decimals 0=none or "%Y-%d" date time like formatting
+        :param dateformat: (str) formatting for title datetime display. in strftime format.
+        :param figsize: (tuple) matplotlib figsize
+        :param dpi: (int) matplotlib dpi value
+        :param x_label: (str) Label for x Axis
+        :param y_label: (str) Label for y Axis
+        :param title: (str) Label for title that will prefix the default title "from MAXDATETIME to CURRENTDATETIME"
+        :param palette: (str) matplotlib style palette name
+        :param palette_keep: (bool) If True chart colours are pinned to categories False colours are pinned to positions on the chart.
+        :param tight_layout: (bool) use tight layout on plot to make sure all text fits. Sometimes causes chart to move when animated.
+
+        :return:
+        """
+
+        # unique values for palette colours
+        if palette_keep:
+            uniques = list(self.category_values)
+            palette = dict(zip(uniques, sns.color_palette(palette, n_colors=len(uniques))))
+
+        self._chart_options={"x_label": x_label,
+                             "y_label": y_label,
+                             "title": title,
+                             "figsize": figsize,
+                             "dpi": dpi,
+                             "x_tick_format": x_tick_format,
+                             "y_tick_format": y_tick_format,
+                             "palette": palette,
+                             "dateformat": dateformat,
+                             "tight_layout": tight_layout
+                             }
+
+
+
+    def set_chart_axis(self,ax,fig,date_df):
+
+
+        #set labels
+        if self._chart_options['x_label'] != None:
+            ax.set_xlabel(self._chart_options['x_label'])
+
+        if self._chart_options['y_label'] != None:
+            ax.set_ylabel(self._chart_options['y_label'])
+
+        #set chart title
+        if self._chart_options['dateformat'] == None:
+            ax.set_title(
+                f"{self._chart_options['title']} From {pd.to_datetime(min(self._chart_options[self.timeseries_col]))} To {pd.to_datetime(date_df[self.timeseries_col].iloc[0])}")
+        else:
+            ax.set_title(
+                f"{self._chart_options['title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col])).strftime(self._chart_options['dateformat'])} To"
+                f" {pd.to_datetime(date_df[self.timeseries_col].iloc[0]).strftime(self._chart_options['dateformat'])}")
+
+
+        #check and set x_tick_format
+        if self._chart_options["x_tick_format"] != None and self._chart_options["x_tick_format"].find("%")>=0:
+            fmt = mdates.DateFormatter(self._chart_options["x_tick_format"])
+        elif self._chart_options["x_tick_format"] != None and self._chart_options["x_tick_format"].isnumeric():
+            fmt = StrMethodFormatter(f'{{x:.{self._chart_options["x_tick_format"]}f}}')
+
+        ax.xaxis.set_major_formatter(fmt)
+
+        #check and set y_tick_format
+
+        if self._chart_options["y_tick_format"] != None and self._chart_options["y_tick_format"].find("%")>=0:
+
+            fmt = mdates.DateFormatter(self._chart_options["y_tick_format"])
+            ax.yaxis.set_major_formatter(fmt)
+
+        elif self._chart_options["y_tick_format"] != None and self._chart_options["y_tick_format"].isnumeric():
+            fmt = StrMethodFormatter(f'{{x:.{self._chart_options["y_tick_format"]}f}}')
+            ax.yaxis.set_major_formatter(fmt)
+
+
+        return ax, fig
+
+
+    def set_display_settings(self, use_top_x=None, display_top_x=None, sort=True,
+                             fps=30, time_in_seconds=None, video_file_name="output.webm"):
         """
 
         :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data. (the amount of data is sometimes to much to make visually appealing charts so trimming the data down is beneficial)
         :param display_top_x: (int) Amount of categories to display on chart. Differs from use_top_x - you can set use_top_x to 20 and display_top_x to 10. Then some categories *MIGHT* fall off the bottom of the chart and be replaced with a previously unseen value that was not "Displayed" before but was present in the data.
-        :param palette: (str) matplotlib style palette name
-        :param palette_keep: (bool) If True chart colours are pinned to categories False colours are pinned to positions on the chart.
         :param sort: (bool) True data is sorted and chart positions change. I.e the highest values are reordered to the bottom of the chart.
-        :param x_label: (str) Label for x Axis
-        :param x_title: (str) Label for title that will prefix the default title "from MAXDATETIME to CURRENTDATETIME"
-        :param dateformat: (str) formatting for x_title datetime display. in strftime format.
-        :param figsize: (tuple) matplotlib figsize
-        :param dpi: (int) matplotlib dpi value
         :param fps: (int) expected fps of video
         :param time_in_seconds: (int) rough expected running time of video in seconds if NONE then each datetime is displayed for 1 frame. This sometimes creates very FAST videos if there is limitied data.
         :param video_file_name: (str) desired output file - must be "xxx.webm"
@@ -286,14 +365,10 @@ class _base_writer:
             self._assert_sort(sort)
             max_date = self._video_df[self.timeseries_col].tail(1).item()
             self.category_values = \
-                self._video_df[self._video_df[self.timeseries_col] == max_date].sort_values(self.value_col)[
+                self._video_df[self._video_df[self.timeseries_col] == max_date].sort_values([self.value_col,self.category_col])[
                     self.category_col].iloc[-use_top_x:]
             self._video_df = self._video_df[self._video_df[self.category_col].isin(self.category_values)]
 
-        # unique values for palette colours
-        if palette_keep:
-            uniques = list(self.category_values)
-            palette = dict(zip(uniques, sns.color_palette(palette, n_colors=len(uniques))))
 
         # get unique dates
         unique_dates = self._video_df[self.timeseries_col].unique()
@@ -310,17 +385,10 @@ class _base_writer:
                                "frames_per_image": frames_per_image,
                                "display_top_x": display_top_x,
                                "use_top_x": use_top_x,
-                               "palette": palette,
                                "sort": sort,
-                               "dateformat": dateformat,
-                               "x_label": x_label,
-                               "x_title": x_title,
-                               "**kwargs": kwargs,
                                "looptimes": 0,
                                "video_file_name": video_file_name,
                                "gif_file_name": None,
-                               "figsize": figsize,
-                               "dpi": dpi,
                                "fps": fps}
 
     def test_chart(self, frame_no=None, as_pil=True):
@@ -330,7 +398,7 @@ class _base_writer:
         :param as_pil: (bool) True outputs a PIL Image False outputs a np.array
         :return:
         """
-        assert self._video_options != {}, "Please set video settings first"
+        assert self._chart_options != {}, "Please set chart options first"
 
         if frame_no == None:
             frame_no = np.random.randint(0, len(self._video_options["unique_dates"]) - 1)
@@ -352,7 +420,9 @@ class _base_writer:
 
         :return:
         """
-        assert self._video_options != {}, "Please set video settings first"
+
+        assert self._video_options != {}, "Please set video options first"
+        assert self._chart_options != {}, "Please set chart options first"
 
         self._video_options["looptimes"] = 0
         self._video_options['starttime'] = datetime.datetime.now()
@@ -449,9 +519,9 @@ class _base_writer:
 
         if sort:
             if all_values:
-                return self._video_df[self._video_df[self.timeseries_col] <= dte].sort_values(self.value_col)
+                return self._video_df[self._video_df[self.timeseries_col] <= dte].sort_values([self.value_col,self.category_col])
             else:
-                return self._video_df[self._video_df[self.timeseries_col] == dte].sort_values(self.value_col)
+                return self._video_df[self._video_df[self.timeseries_col] == dte].sort_values([self.value_col,self.category_col])
         else:
             if all_values:
                 return self._video_df[self._video_df[self.timeseries_col] <= dte]
@@ -461,7 +531,7 @@ class _base_writer:
     def _get_time(self, seconds, fps, df):
         number_of_frames = len(df[self.timeseries_col].unique())
 
-    def _get_date_df(self, i):
+    def _get_date_df(self, i, vals=False):
         # get dates df SORTED IF NEEDED
         self._assert_sort(self._video_options["sort"])
 
@@ -471,9 +541,16 @@ class _base_writer:
             temp_df = self._get_temp_df_sort_values(self._video_options["unique_dates"][i], self._keep_history)
 
         # filter display_top_x value to only SHOW the top x values.
-        if type(self._video_options["display_top_x"]) == int:
+        if type(vals) == pd.core.series.Series:
+            self._assert_sort(self._video_options["sort"])
+            temp_df = temp_df[temp_df[self.category_col].isin(vals)]
+
+        elif type(self._video_options["display_top_x"]) == int:
             self._assert_sort(self._video_options["sort"])
             temp_df = temp_df.tail(self._video_options["display_top_x"])
+
+        else:
+            pass
 
         return temp_df
 
@@ -487,23 +564,17 @@ class BarWriter(_base_writer):
     def get_chart(self, df_date):
 
         # get plot
-        fig = plt.figure(figsize=self._video_options["figsize"], dpi=self._video_options["dpi"])
+        fig = plt.figure(figsize=self._chart_options["figsize"], dpi=self._chart_options["dpi"])
         ax = sns.barplot(y=self.category_col,
                          x=self.value_col,
                          data=df_date,
-                         palette=self._video_options['palette'],
-                         **self._video_options['**kwargs'])
-        ax.set_xlabel(self._video_options['x_label'])
+                         palette=self._chart_options['palette'])
 
-        if self._video_options['dateformat'] == None:
-            ax.set_title(
-                f"{self._video_options['x_title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col]))} To {pd.to_datetime(df_date[self.timeseries_col].iloc[0])}")
-        else:
-            ax.set_title(
-                f"{self._video_options['x_title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col])).strftime(self._video_options['dateformat'])} To"
-                f" {pd.to_datetime(df_date[self.timeseries_col].iloc[0]).strftime(self._video_options['dateformat'])}")
 
-        plt.tight_layout()
+        ax, fig = self.set_chart_axis(ax,fig,df_date)
+
+        if self._chart_options["tight_layout"]:
+            plt.tight_layout()
 
         # save fig and reread as np array
         return self._get_numpy(fig)
@@ -521,7 +592,7 @@ class BarWriter(_base_writer):
             if x == 0:
                 out_writer.write(img)
                 try:
-                    df_date1 = self._get_date_df(i + 1)
+                    df_date1 = self._get_date_df(i + 1, df_date[self.category_col])
                     temp_df = df_date.merge(df_date1.set_index(self.category_col)[self.value_col],
                                             left_on=self.category_col,
                                             right_index=True)
@@ -534,7 +605,7 @@ class BarWriter(_base_writer):
                 if not last:
                     temp_df[self.value_col] = temp_df[self.value_col + "_x"] + (val_diff * x)
                     if self._video_options["sort"]:
-                        temp_df = temp_df.sort_values(self.value_col)
+                        temp_df = temp_df.sort_values([self.value_col,self.category_col])
                     img = self.get_chart(temp_df)
                 out_writer.write(img)
 
@@ -590,39 +661,34 @@ class LineWriter(_base_writer):
 
         # return HTML output
         if output_html:
-            self.show_video()
+            return self.show_video()
 
 
     def get_chart(self, df_date):
 
         # get plot
-        fig = plt.figure(figsize=self._video_options["figsize"], dpi=self._video_options["dpi"])
+        fig = plt.figure(figsize=self._chart_options["figsize"], dpi=self._chart_options["dpi"])
         ax = sns.lineplot(y=self.value_col,
                          x=self.timeseries_col,
                          data=df_date,
                          hue= self.category_col,
-                         palette=self._video_options['palette'],
-                         estimator=None,
-                         **self._video_options['**kwargs'])
+                         palette=self._chart_options['palette'],
+                         estimator=None)
 
-        ax.set_xlabel(self._video_options['x_label'])
-
-        if self._video_options['dateformat'] == None:
-            ax.set_title(
-                f"{self._video_options['x_title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col]))} To {pd.to_datetime(df_date[self.timeseries_col].iloc[0])}")
-        else:
-            ax.set_title(
-                f"{self._video_options['x_title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col])).strftime(self._video_options['dateformat'])} To"
-                f" {pd.to_datetime(df_date[self.timeseries_col].iloc[0]).strftime(self._video_options['dateformat'])}")
+        ax, fig = self.set_chart_axis(ax, fig, df_date)
 
         plt.legend(bbox_to_anchor=(1.0125, 1), loc=2, borderaxespad=0.)
+
+        if self._chart_options["tight_layout"]:
+            plt.tight_layout()
+
         return fig,ax
 
-    def test_chart(self, frame_no=None, as_pil=True):
+    def test_chart(self, frame_no=None, as_pil = True):
         """
         Use prior to video creation to test output.
         :param frame_no: (int / None) if None a random position on the timeline is selected.
-        :param as_pil: (bool) True outputs a PIL Image False outputs a np.array
+        :param out_type: (bool) True outputs a PIL Image False outputs a np.array
         :return:
         """
         assert self._video_options != {}, "Please set video settings first"
