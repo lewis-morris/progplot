@@ -654,9 +654,9 @@ class LineWriter(_base_writer):
         minn = df.min()
         ax.set_ylim(minn-(maxx*.025), maxx*1.05)
         # save fig and reread as np array
-        fig.savefig("./temp_out.jpg")
+        fig.savefig("./temp_out.png")
         plt.close(fig)
-        return cv2.imread("./temp_out.jpg")
+        return cv2.imread("./temp_out.png")
 
     def write_extra_frames(self, i, out_writer, img, df_date):
 
