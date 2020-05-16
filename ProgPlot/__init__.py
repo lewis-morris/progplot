@@ -1,1 +1,1 @@
-from ProgPlot.plotter import BarWriter
+from ProgPlot.plotter import BarWriter, LineWriter
