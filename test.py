@@ -1,7 +1,7 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from ProgPlot import BarWriter
+from progplot import BarWriter
 
 #df = pd.read_csv("athlete_events.csv")
 #new_df = pd.concat([df,pd.get_dummies(df["Medal"],dummy_na=True)],axis=1)
@@ -31,7 +31,7 @@ from ProgPlot import BarWriter
 #df = pd.read_csv("athlete_events.csv")
 #new_df = pd.concat([df,pd.get_dummies(df["Medal"],dummy_na=True)],axis=1)
 #new_df["total_meds"] = new_df["Bronze"] + new_df["Gold"] + new_df["Silver"]
-#from ProgPlot import BarWriter, LineWriter
+#from progplot import BarWriter, LineWriter
 #bw = BarWriter(new_df)
 #bw.set_data("NOC", "Year", "total_meds", resample="1y", groupby_agg="sum", resample_agg="sum",output_agg="cumsum")
 #bw.set_display_settings(sort=True, use_top_x=10, display_top_x=10,time_in_seconds=30,palette="twilight_shifted",fps=50,x_title="Obesity % by Country", x_label="Average % of Obese Adults", dateformat="%Y",dpi=75)
@@ -41,7 +41,7 @@ from ProgPlot import BarWriter
 
 df = pd.read_csv("usa_county_wise.csv")
 df["Date"] = pd.to_datetime(df["Date"])
-from ProgPlot import BarWriter
+from progplot import BarWriter
 bw = BarWriter(df)
 bw.set_data("Province_State", "Date", "Confirmed", resample="1d", groupby_agg="sum", resample_agg="sum",output_agg=None)
 bw.set_chart_options(x_tick_format="0", dateformat="%Y-%d-%m", palette="twilight_shifted", y_label="TEST", title="Confirmed Cases", tight_layout=False)

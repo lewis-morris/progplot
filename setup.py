@@ -5,9 +5,9 @@ with open('requirements.txt') as f:
     required = f.read().splitlines()
 
 setup(
-    name='ProgPlot',
-    version=0.23,
-    packages=['ProgPlot'],
+    name='progplot',
+    version=0.235,
+    packages=['progplot'],
     url='https://github.com/lewis-morris/ProgPlot',
     license='MIT',
     author='Lewis Morris',
