@@ -44,6 +44,6 @@ df["Date"] = pd.to_datetime(df["Date"])
 from ProgPlot import BarWriter
 bw = BarWriter(df)
 bw.set_data("Province_State", "Date", "Confirmed", resample="1d", groupby_agg="sum", resample_agg="sum",output_agg=None)
-bw.set_chart_options(x_tick_format="0", dateformat="%Y-%d-%m", palette="twilight_shifted", y_label="TEST", title="Confirmed Cases", limit_x_ticks=10, tight_layout=False)
+bw.set_chart_options(x_tick_format="0", dateformat="%Y-%d-%m", palette="twilight_shifted", y_label="TEST", title="Confirmed Cases", tight_layout=False)
 bw.set_display_settings(use_top_x=None, display_top_x=20, time_in_seconds=30)
 bw.write_video()

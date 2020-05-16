@@ -77,8 +77,8 @@ class _base_writer:
                                                               "sum"], 'resample_agg is not str or not in ["count","mean","sum"]'
         self.resample_agg = resample_agg
 
-        assert type(output_agg) == str and output_agg == "cumsum" or output_agg == None or output_agg.find(
-            "rolling") >= 0, 'output_agg is not str or not in ["rolling", "cumsum"]'
+        assert (type(output_agg) == str and output_agg == "cumsum") or output_agg == None or output_agg.find(
+            "rolling") >= 0, 'output_agg is not str or not in ["rolling", "cumsum"] or not None'
         self.output_agg = output_agg
 
         self._resample = self._check_resample_valid(resample)
