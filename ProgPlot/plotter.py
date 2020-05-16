@@ -427,6 +427,11 @@ class _base_writer:
                     width = 250 / >
                 """)
 
+    def _get_numpy(self, fig):
+            fig.savefig("temp_out.png")
+            plt.close(fig)
+            return cv2.imread("temp_out.png")
+
     def _write_log(self, start, i, unique_dates):
 
         time_end = datetime.datetime.now()
@@ -501,9 +506,8 @@ class BarWriter(_base_writer):
         plt.tight_layout()
 
         # save fig and reread as np array
-        fig.savefig("temp_out.jpg")
-        plt.close(fig)
-        return cv2.imread("temp_out.jpg")
+        return self._get_numpy(fig)
+
 
     def write_extra_frames(self, i, out_writer, img, df_date):
 
@@ -654,9 +658,7 @@ class LineWriter(_base_writer):
         minn = df.min()
         ax.set_ylim(minn-(maxx*.025), maxx*1.05)
         # save fig and reread as np array
-        fig.savefig("./temp_out.png")
-        plt.close(fig)
-        return cv2.imread("./temp_out.png")
+        return self._get_numpy(fig)
 
     def write_extra_frames(self, i, out_writer, img, df_date):
 
