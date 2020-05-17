@@ -3,6 +3,7 @@ import datetime
 import datetime
 
 import PIL
+import matplotlib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -52,8 +53,6 @@ class _base_writer:
         :param resample: (str) pandas resample arg - resampling is necessary to normalize the dates. Use options (y,m,d,h,s,m,ms etc) i.e "2d" for sampling every 2 days, "1y" for every year. "6m" for six months etc.
         :return: None
         """
-
-        self._video_options = {}
 
         assert type(
             category_col) == str and category_col in self.df.columns, "category_col is not str or not in dataframe columns"
@@ -256,9 +255,13 @@ class _base_writer:
         assert sort == True, "Cant display_top_x or use top_x while sort == False"
 
     def set_chart_options(self, use_top_x=None, display_top_x=None, x_tick_format=None, y_tick_format=None,
-                          dateformat=None, y_label=None, x_label=None, title=None, figsize=(14, 8), dpi=100,
-                          palette="magma", palette_keep=True, palette_random=True, tight_layout=True, sort=True):
+                          dateformat=None, y_label=True, y_label_font_size=None, x_label=True, x_label_font_size=None,
+                          title=None, title_font_size=None, figsize=(14, 8), dpi=100, border_size=None,
+                          border_colour=(0, 0, 0), palette="magma", palette_keep=True, palette_random=True,
+                          tight_layout=True, sort=True):
         """
+
+
 
         Used to set chart options - to be called before video creation to test the output of the chart.
 
@@ -269,26 +272,50 @@ class _base_writer:
 
         You could then therefor keep 20 categories, only showing 10. The effect? The lowest values contend for there position and some may dissapear off the end of the chart and be replaced with new values IF their value is higher.
 
-        :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data. (the amount of data is sometimes to much to make visually appealing charts so trimming the data down is beneficial)
-        :param display_top_x: (int) Amount of categories to display on chart. Differs from use_top_x - you can set use_top_x to 20 and display_top_x to 10. Then some categories *MIGHT* fall off the bottom of the chart and be replaced with a previously unseen value that was not "Displayed" before but was present in the data.
+        :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data.
+               (the amount of data is sometimes to much to make visually appealing charts so trimming the data down
+               is beneficial)
+
+        :param display_top_x: (int) Amount of categories to display on chart. Differs from use_top_x - you can set
+               use_top_x to 20 and display_top_x to 10. Then some categories *MIGHT* fall off the bottom of the
+               chart and be replaced with a previously unseen value that was not "Displayed" before but was present
+               in the data.
+
         :param x_tick_format: (str) either "0" string number for decimals 0=none or "%Y-%d" date time like formatting
         :param y_tick_format: (str) either "0" string number for decimals 0=none or "%Y-%d" date time like formatting
         :param dateformat: (str) formatting for title datetime display. in strftime format.
+
         :param figsize: (tuple) matplotlib figsize
         :param dpi: (int) matplotlib dpi value
-        :param x_label: (str) Label for x Axis
-        :param y_label: (str) Label for y Axis
-        :param title: (str) Label for title that will prefix the default title "from MAXDATETIME to CURRENTDATETIME"
-        :param palette: (str) matplotlib style palette name
-        :param palette_keep: (bool) If True chart colours are pinned to categories False colours are pinned to positions on the chart.
-        :param palette_random: (bool) When the palette colours are created by default they are randomised and assigned to each categorical value. This is becuase depending on the palette type and amount of data is can sometimes be hard to determine the movement category (moving up and down the chart) when sort == True. Randomising colours can help visullise the movement somewhat.
-        :param tight_layout: (bool) use tight layout on plot to make sure all text fits. Sometimes causes chart to move when animated.
 
-        :param sort: (bool) True data is sorted and chart positions change. I.e the highest values are reordered to the bottom of the chart.
+        :param border_size: (int/None) None = no border Int = size of border around each bar
+        :param border_colour: (tuple) (r,g,b) colour or bar - not applicable if border_size == None
+
+        :param y_label: (str/ bool) Label for y Axis or Bool True = column name from DataFrame False = None
+        :param y_label_font_size: (int) font size for y_label (None = style default)
+
+        :param x_label: (str/ bool)  Label for x Axis or Bool True = column name from DataFrame False = None
+        :param x_label_font_size: (int) font size for x_label (None = style default)
+
+        :param title: (str) Label for title that will prefix the default title "from MAXDATETIME to CURRENTDATETIME"
+        :param title_font_size: (int) font size for title (None = style default)
+
+        :param palette: (str) matplotlib style palette name
+        :param palette_keep: (bool) If True chart colours are pinned to categories False colours are pinned to positions
+               on the chart.
+        :param palette_random: (bool) When the palette colours are created by default they are randomised and assigned
+               to each categorical value. This is becuase depending on the palette type and amount of data is can
+               sometimes be hard to determine the movement category (moving up and down the chart) when sort == True.
+               Randomising colours can help visullise the movement somewhat.
+
+        :param tight_layout: (bool) use tight layout on plot to make sure all text fits. Sometimes causes chart to
+               move when animated.
+
+        :param sort: (bool) True data is sorted and chart positions change. I.e the highest values are reordered to
+               the bottom of the chart.
 
         :return:
         """
-
 
         ##trim_dataframe
         if type(use_top_x) == int:
@@ -302,17 +329,22 @@ class _base_writer:
         else:
             self._video_df = self._video_df_base.copy()
 
-        max_len = len(max(self._video_df[self.category_col], key=len))
-        self._video_df.loc[:, self.category_col] = self._video_df[self.category_col].apply(lambda x: x.rjust(max_len))
-
+        max_len = int(self._video_df[self.category_col].str.len().max()*1.1)
+        self._video_df.loc[:][self.category_col] = self._video_df[self.category_col].apply(lambda x: x.rjust(max_len) if len(x) < max_len else x)
         # unique values for palette colours
         if palette_keep:
             uniques = list(self._video_df[self.category_col].unique())
+            colours = sns.color_palette(palette, n_colors=len(uniques))
+
             if palette_random:
                 shuffle(uniques)
-            palette = dict(zip(uniques, sns.color_palette(palette, n_colors=len(uniques))))
+                shuffle(colours)
 
-        self._chart_options = {"x_label": x_label,
+            palette = dict(zip(uniques, colours ))
+
+        self._chart_options = {"x_label_font_size":x_label_font_size,
+                               "x_label": x_label,
+                               "y_label_font_size":y_label_font_size,
                                "y_label": y_label,
                                "title": title,
                                "figsize": figsize,
@@ -324,7 +356,10 @@ class _base_writer:
                                "tight_layout": tight_layout,
                                "display_top_x": display_top_x,
                                "use_top_x": use_top_x,
-                               "sort": sort
+                               "sort": sort,
+                               "border_size":border_size,
+                               "border_colour":border_colour,
+                               "title_font_size":title_font_size
                                }
 
 
@@ -332,11 +367,30 @@ class _base_writer:
     def set_chart_axis(self, ax, fig, date_df):
 
         # set labels
-        if self._chart_options['x_label'] != None:
-            ax.set_xlabel(self._chart_options['x_label'])
 
-        if self._chart_options['y_label'] != None:
+        #set x label if needed
+        if self._chart_options['x_label'] == False:
+            ax.xaxis.label.set_visible(False)
+        elif self._chart_options['x_label'] == True:
+            pass
+        else:
+            ax.set_ylabel(self._chart_options['x_label'])
+        #set font size
+        if self._chart_options["x_label_font_size"] != None:
+            ax.set_xlabel(ax.get_xlabel(), fontsize=self._chart_options['x_label_font_size'])
+
+        #set y label if needed
+        if self._chart_options['y_label'] == False:
+            ax.yaxis.label.set_visible(False)
+        elif self._chart_options['y_label'] == True:
+            pass
+        else:
             ax.set_ylabel(self._chart_options['y_label'])
+
+        #set font size
+        if self._chart_options["y_label_font_size"] != None:
+            ax.set_ylabel(ax.get_ylabel(), fontsize=self._chart_options['y_label_font_size'])
+
 
         # set chart title
         if self._chart_options['dateformat'] == None:
@@ -346,6 +400,10 @@ class _base_writer:
             ax.set_title(
                 f"{self._chart_options['title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col])).strftime(self._chart_options['dateformat'])} To"
                 f" {pd.to_datetime(date_df[self.timeseries_col].iloc[0]).strftime(self._chart_options['dateformat'])}")
+
+        #set fontsize of title
+        if self._chart_options['title_font_size'] != None:
+            ax.set_title(ax.get_title(),fontsize=self._chart_options['title_font_size'])
 
         # check and set x_tick_format
         if self._chart_options["x_tick_format"] != None and self._chart_options["x_tick_format"].find("%") >= 0:
@@ -605,10 +663,23 @@ class BarWriter(_base_writer):
 
         # get plot
         fig = plt.figure(figsize=self._chart_options["figsize"], dpi=self._chart_options["dpi"])
-        ax = sns.barplot(y=self.category_col,
-                         x=self.value_col,
-                         data=df_date,
-                         palette=self._chart_options['palette'])
+
+        if self._chart_options["border_size"] == None:
+            ax = sns.barplot(y=self.category_col,
+                             x=self.value_col,
+                             data=df_date,
+                             palette=self._chart_options['palette'])
+        else:
+            ax = sns.barplot(y=self.category_col,
+                             x=self.value_col,
+                             data=df_date,
+                             palette=self._chart_options['palette'],
+                             edgecolor=self._chart_options['border_colour'],
+                             linewidth=self._chart_options["border_size"]
+                             )
+
+        #set line to 0 if no value
+        _ = [x.set_linewidth(0) for x in ax.get_children() if type(x) == matplotlib.patches.Rectangle and x.get_width() == 0]
 
         ax, fig = self.set_chart_axis(ax, fig, df_date)
 
