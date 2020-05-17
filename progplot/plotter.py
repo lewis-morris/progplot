@@ -307,7 +307,7 @@ class _base_writer:
 
         # unique values for palette colours
         if palette_keep:
-            uniques = list(self._video_df[self.category_col])
+            uniques = list(self._video_df[self.category_col].unique())
             if palette_random:
                 shuffle(uniques)
             palette = dict(zip(uniques, sns.color_palette(palette, n_colors=len(uniques))))
