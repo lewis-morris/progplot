@@ -472,7 +472,7 @@ class _base_writer:
         if self._verbose == 1:
             print("Converting video file to gif.")
         file_name = self._video_options["video_file_name"]
-        new_file_name = file_name.split(".")[:-1] + ".gif"
+        new_file_name = "".join(file_name.split(".")[:-1]) + ".gif"
         ff = ffmpy.FFmpeg(
             inputs={file_name: None},
             outputs={new_file_name: None})
