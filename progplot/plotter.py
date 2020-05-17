@@ -15,7 +15,7 @@ from matplotlib.ticker import StrMethodFormatter
 from progplot.functions import convert, get_bar
 import matplotlib.dates as mdates
 from random import shuffle
-
+import os
 
 class _base_writer:
 
@@ -289,9 +289,25 @@ class _base_writer:
         :return:
         """
 
+
+        ##trim_dataframe
+        if type(use_top_x) == int:
+            self._assert_sort(sort)
+            max_date = self._video_df_base[self.timeseries_col].tail(1).item()
+            self.category_values = \
+                self._video_df_base[self._video_df_base[self.timeseries_col] == max_date].sort_values(
+                    [self.value_col, self.category_col])[
+                    self.category_col].iloc[-use_top_x:]
+            self._video_df = self._video_df_base[self._video_df_base[self.category_col].isin(self.category_values)]
+        else:
+            self._video_df = self._video_df_base.copy()
+
+        max_len = len(max(self._video_df[self.category_col], key=len))
+        self._video_df[self.category_col] = self._video_df[self.category_col].apply(lambda x: x.rjust(max_len))
+
         # unique values for palette colours
         if palette_keep:
-            uniques = list(self.category_values)
+            uniques = list(self._video_df[self.category_col])
             if palette_random:
                 shuffle(uniques)
             palette = dict(zip(uniques, sns.color_palette(palette, n_colors=len(uniques))))
@@ -311,17 +327,7 @@ class _base_writer:
                                "sort": sort
                                }
 
-        ##trim_dataframe
-        if type(use_top_x) == int:
-            self._assert_sort(sort)
-            max_date = self._video_df_base[self.timeseries_col].tail(1).item()
-            self.category_values = \
-                self._video_df_base[self._video_df_base[self.timeseries_col] == max_date].sort_values(
-                    [self.value_col, self.category_col])[
-                    self.category_col].iloc[-use_top_x:]
-            self._video_df = self._video_df_base[self._video_df_base[self.category_col].isin(self.category_values)]
-        else:
-            self._video_df = self._video_df_base.copy()
+
 
     def set_chart_axis(self, ax, fig, date_df):
 
@@ -469,16 +475,27 @@ class _base_writer:
         :return:
         """
         assert self._video_options != {}, "Please set video settings first"
+
         if self._verbose == 1:
             print("Converting video file to gif.")
+
         file_name = self._video_options["video_file_name"]
         new_file_name = "".join(file_name.split(".")[:-1]) + ".gif"
-        ff = ffmpy.FFmpeg(
-            inputs={file_name: None},
-            outputs={new_file_name: None})
-        ff.run()
-        if self._verbose == 1:
+
+        try:
+            os.remove(new_file_name)
+        except:
+            pass
+
+        out = os.system(f"ffmpeg -i {self._video_options['video_file_name']} {new_file_name}")
+
+        self._video_options["gif_file_name"] = new_file_name
+
+        if self._verbose == 1 and out == 0:
             print("Video file converted to gif.")
+        elif out> 0:
+            print("Error Generating GIF. Have you got ffmpeg installed?")
+
         if show_html:
             self.show_gif()
 
@@ -503,10 +520,9 @@ class _base_writer:
         assert type(self._last_video_save) == str, "Video not rendered"
 
         return HTML(f"""
-                    < img
-                    src = self.
-                    alt = "this slowpoke moves"
-                    width = 250 / >
+                    <img
+                    src = {self._video_options["gif_file_name"]}
+                    alt = "Gif Output">
                 """)
 
     def _set_tight_layout(self, ax, fig):
