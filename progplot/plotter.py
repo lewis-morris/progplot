@@ -92,6 +92,13 @@ class _base_writer:
         self.category_values = list(self.df.groupby([self.category_col]).count().reset_index().
                                     sort_values([self.value_col, self.category_col])[self.category_col])
 
+
+        # prepare df for redndering
+        if self._verbose == 1:
+            print("Creating resampled video dataframe (aggregating/ resampling). This may take a moment.")
+        self._video_df_base = self._create_new_frame()
+
+
     def _check_resample_valid(self, resample):
 
         if resample == None:
@@ -248,12 +255,22 @@ class _base_writer:
     def _assert_sort(self, sort):
         assert sort == True, "Cant display_top_x or use top_x while sort == False"
 
-    def set_chart_options(self, x_tick_format=None, y_tick_format=None, limit_x_ticks=None, limit_y_ticks=False,
+    def set_chart_options(self, use_top_x=None, display_top_x=None, x_tick_format=None, y_tick_format=None,
                           dateformat=None, y_label=None, x_label=None, title=None, figsize=(14, 8), dpi=100,
-                          palette="magma", palette_keep=True, palette_random=True, tight_layout=True):
+                          palette="magma", palette_keep=True, palette_random=True, tight_layout=True, sort=True):
         """
 
+        Used to set chart options - to be called before video creation to test the output of the chart.
 
+        Two important values are use_top_x and display_top_x:
+
+        use_top_x trims the dataframe down to the top x values.
+        display_top_x shows only x categories on the chart.
+
+        You could then therefor keep 20 categories, only showing 10. The effect? The lowest values contend for there position and some may dissapear off the end of the chart and be replaced with new values IF their value is higher.
+
+        :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data. (the amount of data is sometimes to much to make visually appealing charts so trimming the data down is beneficial)
+        :param display_top_x: (int) Amount of categories to display on chart. Differs from use_top_x - you can set use_top_x to 20 and display_top_x to 10. Then some categories *MIGHT* fall off the bottom of the chart and be replaced with a previously unseen value that was not "Displayed" before but was present in the data.
         :param x_tick_format: (str) either "0" string number for decimals 0=none or "%Y-%d" date time like formatting
         :param y_tick_format: (str) either "0" string number for decimals 0=none or "%Y-%d" date time like formatting
         :param dateformat: (str) formatting for title datetime display. in strftime format.
@@ -266,6 +283,8 @@ class _base_writer:
         :param palette_keep: (bool) If True chart colours are pinned to categories False colours are pinned to positions on the chart.
         :param palette_random: (bool) When the palette colours are created by default they are randomised and assigned to each categorical value. This is becuase depending on the palette type and amount of data is can sometimes be hard to determine the movement category (moving up and down the chart) when sort == True. Randomising colours can help visullise the movement somewhat.
         :param tight_layout: (bool) use tight layout on plot to make sure all text fits. Sometimes causes chart to move when animated.
+
+        :param sort: (bool) True data is sorted and chart positions change. I.e the highest values are reordered to the bottom of the chart.
 
         :return:
         """
@@ -286,8 +305,23 @@ class _base_writer:
                                "y_tick_format": y_tick_format,
                                "palette": palette,
                                "dateformat": dateformat,
-                               "tight_layout": tight_layout
+                               "tight_layout": tight_layout,
+                               "display_top_x": display_top_x,
+                               "use_top_x": use_top_x,
+                               "sort": sort
                                }
+
+        ##trim_dataframe
+        if type(use_top_x) == int:
+            self._assert_sort(sort)
+            max_date = self._video_df_base[self.timeseries_col].tail(1).item()
+            self.category_values = \
+                self._video_df_base[self._video_df_base[self.timeseries_col] == max_date].sort_values(
+                    [self.value_col, self.category_col])[
+                    self.category_col].iloc[-use_top_x:]
+            self._video_df = self._video_df_base[self._video_df_base[self.category_col].isin(self.category_values)]
+        else:
+            self._video_df = self._video_df_base.copy()
 
     def set_chart_axis(self, ax, fig, date_df):
 
@@ -328,14 +362,10 @@ class _base_writer:
 
         return ax, fig
 
-    def set_display_settings(self, use_top_x=None, display_top_x=None, sort=True, fps=30, time_in_seconds=None,
-                             video_file_name="output.webm", codec="VP90"):
+    def set_display_settings(self, fps=30, time_in_seconds=None,  video_file_name="output.webm", codec="VP90"):
         """
         Used to set the video settings - at this point a new dataframe is created to suit the data. Depending on your choice of settings this could take a while to complete.
 
-        :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data. (the amount of data is sometimes to much to make visually appealing charts so trimming the data down is beneficial)
-        :param display_top_x: (int) Amount of categories to display on chart. Differs from use_top_x - you can set use_top_x to 20 and display_top_x to 10. Then some categories *MIGHT* fall off the bottom of the chart and be replaced with a previously unseen value that was not "Displayed" before but was present in the data.
-        :param sort: (bool) True data is sorted and chart positions change. I.e the highest values are reordered to the bottom of the chart.
         :param fps: (int) expected fps of video
         :param time_in_seconds: (int) rough expected running time of video in seconds if NONE then each datetime is displayed for 1 frame. This sometimes creates very FAST videos if there is limitied data.
         :param video_file_name: (str) desired output file - must be "xxx.webm"
@@ -345,22 +375,8 @@ class _base_writer:
         # save file name
         self._last_video_save = video_file_name
 
-        # prepare df for redndering
-        if self._verbose == 1:
-            print("Creating resampled video dataframe. This may take a moment.")
-        self._video_df = self._create_new_frame()
-
-        if type(use_top_x) == int:
-            self._assert_sort(sort)
-            max_date = self._video_df[self.timeseries_col].tail(1).item()
-            self.category_values = \
-                self._video_df[self._video_df[self.timeseries_col] == max_date].sort_values(
-                    [self.value_col, self.category_col])[
-                    self.category_col].iloc[-use_top_x:]
-            self._video_df = self._video_df[self._video_df[self.category_col].isin(self.category_values)]
-
         # get unique dates
-        unique_dates = self._video_df[self.timeseries_col].unique()
+        unique_dates = self._video_df_base[self.timeseries_col].unique()
 
         ## get times per frame.
         if not time_in_seconds == None:
@@ -372,9 +388,6 @@ class _base_writer:
         # set options for
         self._video_options = {"unique_dates": unique_dates,
                                "frames_per_image": frames_per_image,
-                               "display_top_x": display_top_x,
-                               "use_top_x": use_top_x,
-                               "sort": sort,
                                "looptimes": 0,
                                "fourcc":codec,
                                "video_file_name": video_file_name,
@@ -436,7 +449,7 @@ class _base_writer:
             out = self.write_extra_frames(i, out, img, df_date)
 
             if limit_frames != None:
-                if i > limit_frames:
+                if self._video_options['looptimes'] > limit_frames:
                     break
 
         # finalize file
@@ -509,7 +522,7 @@ class _base_writer:
     def _get_numpy(self, fig):
         fig.savefig("temp_out.png")
         plt.close(fig)
-        return cv2.imread("temp_out.png")
+        return cv2.imread("temp_out.png")[:,:,::-1]
 
     def _write_log(self, start, i, unique_dates):
 
@@ -524,7 +537,7 @@ class _base_writer:
     def _get_temp_df_sort_values(self, dte, all_values=False):
         # filter the df by date and sort if needed
 
-        sort = self._video_options['sort']
+        sort = self._chart_options['sort']
 
         if sort:
             if all_values:
@@ -544,21 +557,21 @@ class _base_writer:
 
     def _get_date_df(self, i, vals=False):
         # get dates df SORTED IF NEEDED
-        self._assert_sort(self._video_options["sort"])
+        self._assert_sort(self._chart_options["sort"])
 
-        if self._video_options["sort"]:
+        if self._chart_options["sort"]:
             temp_df = self._get_temp_df_sort_values(self._video_options["unique_dates"][i], self._keep_history)
         else:
             temp_df = self._get_temp_df_sort_values(self._video_options["unique_dates"][i], self._keep_history)
 
         # filter display_top_x value to only SHOW the top x values.
         if type(vals) == pd.core.series.Series:
-            self._assert_sort(self._video_options["sort"])
+            self._assert_sort(self._chart_options["sort"])
             temp_df = temp_df[temp_df[self.category_col].isin(vals)]
 
-        elif type(self._video_options["display_top_x"]) == int:
-            self._assert_sort(self._video_options["sort"])
-            temp_df = temp_df.tail(self._video_options["display_top_x"])
+        elif type(self._chart_options["display_top_x"]) == int:
+            self._assert_sort(self._chart_options["sort"])
+            temp_df = temp_df.tail(self._chart_options["display_top_x"])
 
         else:
             pass
@@ -613,7 +626,7 @@ class BarWriter(_base_writer):
             else:
                 if not last:
                     temp_df[self.value_col] = temp_df[self.value_col + "_x"] + (val_diff * x)
-                    if self._video_options["sort"]:
+                    if self._chart_options["sort"]:
                         temp_df = temp_df.sort_values([self.value_col, self.category_col])
                     img = self.get_chart(temp_df)
                 out_writer.write(img)
@@ -667,7 +680,7 @@ class LineWriter(_base_writer):
 
             #check if early stopping
             if limit_frames != None:
-                if i > limit_frames:
+                if self._video_options['looptimes'] > limit_frames:
                     break
 
         # finalize file

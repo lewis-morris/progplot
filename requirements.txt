@@ -5,3 +5,4 @@ Pillow>=7.1.1
 numpy>=1.18.1
 opencv-python>=4.2.0.34
 ffmpy>=0.2.3
+ProgPlot>=0.1
