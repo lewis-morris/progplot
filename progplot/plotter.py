@@ -14,10 +14,12 @@ from matplotlib.ticker import StrMethodFormatter
 
 from progplot.functions import convert, get_bar
 import matplotlib.dates as mdates
+from random import shuffle
+
 
 class _base_writer:
 
-    def __init__(self, df=None, fps=30):
+    def __init__(self, df=None, verbose=1):
         """
         Init of the bar writer.
 
@@ -34,6 +36,7 @@ class _base_writer:
 
         self._resample = None
         self._keep_history = None
+        self._verbose = verbose
 
     def set_data(self, category_col, timeseries_col, value_col,
                  groupby_agg="sum", resample_agg="sum", output_agg="cumsum", resample=None):
@@ -73,22 +76,21 @@ class _base_writer:
                                                             "sum"], 'groupby_agg is not str or not in ["count","mean","sum"]'
         self.groupby_agg = groupby_agg
 
-        assert type(resample_agg) == str and resample_agg in ["count", "mean",
-                                                              "sum"], 'resample_agg is not str or not in ["count","mean","sum"]'
+        assert type(resample_agg) == str and resample_agg.lower() in ["count", "mean",
+                                                                      "sum"], 'resample_agg is not str or not in ["count","mean","sum"]'
         self.resample_agg = resample_agg
 
-        if type(output_agg) == str:
-            if output_agg == None:
-                pass
-            else:
-                raise ValueError("Output_add incorrect")
+        assert (type(output_agg) == str and (output_agg in [
+            "cumsum"] or "rolling" in output_agg.lower())) or output_agg == None, 'output_agg is not None or not in ["cumsum"] or like "4rolling"]'
+
+        self.resample_agg = resample_agg
 
         self.output_agg = output_agg
 
         self._resample = self._check_resample_valid(resample)
 
         self.category_values = list(self.df.groupby([self.category_col]).count().reset_index().
-                                    sort_values([self.value_col,self.category_col])[self.category_col])
+                                    sort_values([self.value_col, self.category_col])[self.category_col])
 
     def _check_resample_valid(self, resample):
 
@@ -175,21 +177,6 @@ class _base_writer:
 
         return final_df
 
-    def _fix_dates(self, df):
-        # relic - not used
-
-        df = df.reset_index(drop=True)
-        for x in range(len(df)):
-            try:
-                diff = df.loc[x + 1, self.timeseries_col] - df.loc[x, self.timeseries_col]
-                print(diff)
-                if diff * .95 < self.date_diff:
-                    df.loc[x, self.value_col] += df.loc[x + 1, self.value_col]
-                    df.drop(x + 1, inplace=True)
-            except Exception as e:
-                print(e)
-        return df
-
     def _get_unique(self):
         for cat in self.category_values:
             yield self._data_df_temp[self._data_df_temp[self.category_col] == cat], cat
@@ -212,7 +199,6 @@ class _base_writer:
             df = df.groupby([self.timeseries_col, self.category_col]).count().reset_index()
         else:
             pass
-
 
         if self.resample_agg == "sum":
             df = df.set_index(df[self.timeseries_col]).resample(self._resample).sum()
@@ -264,7 +250,7 @@ class _base_writer:
 
     def set_chart_options(self, x_tick_format=None, y_tick_format=None, limit_x_ticks=None, limit_y_ticks=False,
                           dateformat=None, y_label=None, x_label=None, title=None, figsize=(14, 8), dpi=100,
-                          palette="magma", palette_keep=True, tight_layout=True):
+                          palette="magma", palette_keep=True, palette_random=True, tight_layout=True):
         """
 
 
@@ -278,6 +264,7 @@ class _base_writer:
         :param title: (str) Label for title that will prefix the default title "from MAXDATETIME to CURRENTDATETIME"
         :param palette: (str) matplotlib style palette name
         :param palette_keep: (bool) If True chart colours are pinned to categories False colours are pinned to positions on the chart.
+        :param palette_random: (bool) When the palette colours are created by default they are randomised and assigned to each categorical value. This is becuase depending on the palette type and amount of data is can sometimes be hard to determine the movement category (moving up and down the chart) when sort == True. Randomising colours can help visullise the movement somewhat.
         :param tight_layout: (bool) use tight layout on plot to make sure all text fits. Sometimes causes chart to move when animated.
 
         :return:
@@ -286,33 +273,32 @@ class _base_writer:
         # unique values for palette colours
         if palette_keep:
             uniques = list(self.category_values)
+            if palette_random:
+                shuffle(uniques)
             palette = dict(zip(uniques, sns.color_palette(palette, n_colors=len(uniques))))
 
-        self._chart_options={"x_label": x_label,
-                             "y_label": y_label,
-                             "title": title,
-                             "figsize": figsize,
-                             "dpi": dpi,
-                             "x_tick_format": x_tick_format,
-                             "y_tick_format": y_tick_format,
-                             "palette": palette,
-                             "dateformat": dateformat,
-                             "tight_layout": tight_layout
-                             }
+        self._chart_options = {"x_label": x_label,
+                               "y_label": y_label,
+                               "title": title,
+                               "figsize": figsize,
+                               "dpi": dpi,
+                               "x_tick_format": x_tick_format,
+                               "y_tick_format": y_tick_format,
+                               "palette": palette,
+                               "dateformat": dateformat,
+                               "tight_layout": tight_layout
+                               }
 
+    def set_chart_axis(self, ax, fig, date_df):
 
-
-    def set_chart_axis(self,ax,fig,date_df):
-
-
-        #set labels
+        # set labels
         if self._chart_options['x_label'] != None:
             ax.set_xlabel(self._chart_options['x_label'])
 
         if self._chart_options['y_label'] != None:
             ax.set_ylabel(self._chart_options['y_label'])
 
-        #set chart title
+        # set chart title
         if self._chart_options['dateformat'] == None:
             ax.set_title(
                 f"{self._chart_options['title']} From {pd.to_datetime(min(self._chart_options[self.timeseries_col]))} To {pd.to_datetime(date_df[self.timeseries_col].iloc[0])}")
@@ -321,18 +307,17 @@ class _base_writer:
                 f"{self._chart_options['title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col])).strftime(self._chart_options['dateformat'])} To"
                 f" {pd.to_datetime(date_df[self.timeseries_col].iloc[0]).strftime(self._chart_options['dateformat'])}")
 
-
-        #check and set x_tick_format
-        if self._chart_options["x_tick_format"] != None and self._chart_options["x_tick_format"].find("%")>=0:
+        # check and set x_tick_format
+        if self._chart_options["x_tick_format"] != None and self._chart_options["x_tick_format"].find("%") >= 0:
             fmt = mdates.DateFormatter(self._chart_options["x_tick_format"])
         elif self._chart_options["x_tick_format"] != None and self._chart_options["x_tick_format"].isnumeric():
             fmt = StrMethodFormatter(f'{{x:.{self._chart_options["x_tick_format"]}f}}')
 
         ax.xaxis.set_major_formatter(fmt)
 
-        #check and set y_tick_format
+        # check and set y_tick_format
 
-        if self._chart_options["y_tick_format"] != None and self._chart_options["y_tick_format"].find("%")>=0:
+        if self._chart_options["y_tick_format"] != None and self._chart_options["y_tick_format"].find("%") >= 0:
 
             fmt = mdates.DateFormatter(self._chart_options["y_tick_format"])
             ax.yaxis.set_major_formatter(fmt)
@@ -341,13 +326,12 @@ class _base_writer:
             fmt = StrMethodFormatter(f'{{x:.{self._chart_options["y_tick_format"]}f}}')
             ax.yaxis.set_major_formatter(fmt)
 
-
         return ax, fig
 
-
-    def set_display_settings(self, use_top_x=None, display_top_x=None, sort=True,
-                             fps=30, time_in_seconds=None, video_file_name="output.webm"):
+    def set_display_settings(self, use_top_x=None, display_top_x=None, sort=True, fps=30, time_in_seconds=None,
+                             video_file_name="output.webm", codec="VP90"):
         """
+        Used to set the video settings - at this point a new dataframe is created to suit the data. Depending on your choice of settings this could take a while to complete.
 
         :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data. (the amount of data is sometimes to much to make visually appealing charts so trimming the data down is beneficial)
         :param display_top_x: (int) Amount of categories to display on chart. Differs from use_top_x - you can set use_top_x to 20 and display_top_x to 10. Then some categories *MIGHT* fall off the bottom of the chart and be replaced with a previously unseen value that was not "Displayed" before but was present in the data.
@@ -355,24 +339,25 @@ class _base_writer:
         :param fps: (int) expected fps of video
         :param time_in_seconds: (int) rough expected running time of video in seconds if NONE then each datetime is displayed for 1 frame. This sometimes creates very FAST videos if there is limitied data.
         :param video_file_name: (str) desired output file - must be "xxx.webm"
-        :param kwargs: matplotlib kwargs
+        :param codec: (str) from list "VP80", "VP90", "XVID", "MP4V".  DEFAULT is VP90 and is open source web format for videos. VP80/90 must have ".webm" for file extension / others must have ".mp4"
         :return:
         """
         # save file name
         self._last_video_save = video_file_name
 
         # prepare df for redndering
-        print("Creating resampled video dataframe. This may take a moment.")
+        if self._verbose == 1:
+            print("Creating resampled video dataframe. This may take a moment.")
         self._video_df = self._create_new_frame()
 
         if type(use_top_x) == int:
             self._assert_sort(sort)
             max_date = self._video_df[self.timeseries_col].tail(1).item()
             self.category_values = \
-                self._video_df[self._video_df[self.timeseries_col] == max_date].sort_values([self.value_col,self.category_col])[
+                self._video_df[self._video_df[self.timeseries_col] == max_date].sort_values(
+                    [self.value_col, self.category_col])[
                     self.category_col].iloc[-use_top_x:]
             self._video_df = self._video_df[self._video_df[self.category_col].isin(self.category_values)]
-
 
         # get unique dates
         unique_dates = self._video_df[self.timeseries_col].unique()
@@ -391,6 +376,7 @@ class _base_writer:
                                "use_top_x": use_top_x,
                                "sort": sort,
                                "looptimes": 0,
+                               "fourcc":codec,
                                "video_file_name": video_file_name,
                                "gif_file_name": None,
                                "fps": fps}
@@ -416,13 +402,15 @@ class _base_writer:
         else:
             return img
 
-    def write_video(self, output_html=True):
+    def write_video(self, output_html=True, limit_frames=None):
+
         """
         Renders Video and saves to file - all settings need to be set piror to calling this function.
 
         :param output_html: For Jupyter - will output the video as HTML
-
+        :param limit_frames: To limit frames to x number for testing i.e 20 will only render the first 20 frames.
         :return:
+
         """
 
         assert self._video_options != {}, "Please set video options first"
@@ -447,9 +435,14 @@ class _base_writer:
 
             out = self.write_extra_frames(i, out, img, df_date)
 
+            if limit_frames != None:
+                if i > limit_frames:
+                    break
+
         # finalize file
         out.release()
-        print("\nVideo creation complete")
+        if self._verbose == 1:
+            print("\nVideo creation complete")
 
         # return HTML output
         if output_html:
@@ -463,14 +456,16 @@ class _base_writer:
         :return:
         """
         assert self._video_options != {}, "Please set video settings first"
-
+        if self._verbose == 1:
+            print("Converting video file to gif.")
         file_name = self._video_options["video_file_name"]
         new_file_name = file_name.split(".")[:-1] + ".gif"
         ff = ffmpy.FFmpeg(
             inputs={file_name: None},
             outputs={new_file_name: None})
         ff.run()
-
+        if self._verbose == 1:
+            print("Video file converted to gif.")
         if show_html:
             self.show_gif()
 
@@ -501,10 +496,20 @@ class _base_writer:
                     width = 250 / >
                 """)
 
+    def _set_tight_layout(self, ax, fig):
+
+            plt.tight_layout()
+            ax.get_figure().canvas.draw()
+            chart_x1 = ax.get_window_extent().x1
+            ticks = [tick.get_position()[0] for tick in ax.get_xticklabels() if tick.get_window_extent().x1 < chart_x1]
+            _ = ax.set_xticks(ticks)
+            plt.tight_layout()
+            return ax,fig
+
     def _get_numpy(self, fig):
-            fig.savefig("temp_out.png")
-            plt.close(fig)
-            return cv2.imread("temp_out.png")
+        fig.savefig("temp_out.png")
+        plt.close(fig)
+        return cv2.imread("temp_out.png")
 
     def _write_log(self, start, i, unique_dates):
 
@@ -512,9 +517,9 @@ class _base_writer:
         total_time = (time_end - start).total_seconds()
         seconds_per = (total_time / (i + 1))
         seconds_left = (unique_dates - (i + 1)) * seconds_per
-        print(
-            f"\rWriting Frame {i:>4}/{unique_dates}  Render Speed: {(i + 1) / total_time:.1f}fps  Time taken: {convert(total_time)}  Time left: {convert(seconds_left)} {get_bar(i, unique_dates - 1)}",
-            end="")
+        if self._verbose == 1:
+            print(f"\rWriting Frame {i:>4}/{unique_dates}  Render Speed: {(i + 1) / total_time:.1f}fps  Time taken:"
+                  f" {convert(total_time)}  Time left: {convert(seconds_left)} {get_bar(i, unique_dates - 1)}", end="")
 
     def _get_temp_df_sort_values(self, dte, all_values=False):
         # filter the df by date and sort if needed
@@ -523,9 +528,11 @@ class _base_writer:
 
         if sort:
             if all_values:
-                return self._video_df[self._video_df[self.timeseries_col] <= dte].sort_values([self.value_col,self.category_col])
+                return self._video_df[self._video_df[self.timeseries_col] <= dte].sort_values(
+                    [self.value_col, self.category_col])
             else:
-                return self._video_df[self._video_df[self.timeseries_col] == dte].sort_values([self.value_col,self.category_col])
+                return self._video_df[self._video_df[self.timeseries_col] == dte].sort_values(
+                    [self.value_col, self.category_col])
         else:
             if all_values:
                 return self._video_df[self._video_df[self.timeseries_col] <= dte]
@@ -574,15 +581,13 @@ class BarWriter(_base_writer):
                          data=df_date,
                          palette=self._chart_options['palette'])
 
-
-        ax, fig = self.set_chart_axis(ax,fig,df_date)
+        ax, fig = self.set_chart_axis(ax, fig, df_date)
 
         if self._chart_options["tight_layout"]:
-            plt.tight_layout()
+            ax, fig = self._set_tight_layout(ax,fig)
 
         # save fig and reread as np array
         return self._get_numpy(fig)
-
 
     def write_extra_frames(self, i, out_writer, img, df_date):
 
@@ -609,7 +614,7 @@ class BarWriter(_base_writer):
                 if not last:
                     temp_df[self.value_col] = temp_df[self.value_col + "_x"] + (val_diff * x)
                     if self._video_options["sort"]:
-                        temp_df = temp_df.sort_values([self.value_col,self.category_col])
+                        temp_df = temp_df.sort_values([self.value_col, self.category_col])
                     img = self.get_chart(temp_df)
                 out_writer.write(img)
 
@@ -623,33 +628,34 @@ class BarWriter(_base_writer):
 
         return out_writer
 
+
 class LineWriter(_base_writer):
 
     def __init__(self, df):
         super().__init__(df)
         self._keep_history = True
 
-    def write_video(self, output_html=True):
+    def write_video(self, output_html=True, limit_frames=None):
         """
         Renders Video and saves to file - all settings need to be set piror to calling this function.
 
         :param output_html: For Jupyter - will output the video as HTML
-
+        :param limit_frames: To limit frames to x number for testing i.e 20 will only render the first 20 frames.
         :return:
         """
         assert self._video_options != {}, "Please set video settings first"
+        assert limit_frames == None or type(limit_frames) == int, "limit_frames is not None or Int"
 
         self._video_options["looptimes"] = 0
         self._video_options['starttime'] = datetime.datetime.now()
 
         # squeeze if TEST mode
 
-        df_date = self._video_df
-        fig,ax = self.get_chart(self._video_df)
+        fig, ax = self.get_chart(self._video_df)
 
         for i, dte in enumerate(self._video_options["unique_dates"]):
 
-            img = self.set_lim_and_save(ax,fig,dte)
+            img = self.set_lim_and_save(ax, fig, dte)
 
             if i == 0:
                 # set writer
@@ -657,38 +663,43 @@ class LineWriter(_base_writer):
                 out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                       fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
 
-            out = self.write_extra_frames(i, out, img, df_date)
+            out = self.write_extra_frames(i, out, img, self._video_df)
+
+            #check if early stopping
+            if limit_frames != None:
+                if i > limit_frames:
+                    break
 
         # finalize file
         out.release()
-        print("\nVideo creation complete")
+        if self._verbose == 1:
+            print("\nVideo creation complete")
 
         # return HTML output
         if output_html:
             return self.show_video()
-
 
     def get_chart(self, df_date):
 
         # get plot
         fig = plt.figure(figsize=self._chart_options["figsize"], dpi=self._chart_options["dpi"])
         ax = sns.lineplot(y=self.value_col,
-                         x=self.timeseries_col,
-                         data=df_date,
-                         hue= self.category_col,
-                         palette=self._chart_options['palette'],
-                         estimator=None)
+                          x=self.timeseries_col,
+                          data=df_date,
+                          hue=self.category_col,
+                          palette=self._chart_options['palette'],
+                          estimator=None)
 
         ax, fig = self.set_chart_axis(ax, fig, df_date)
 
         plt.legend(bbox_to_anchor=(1.0125, 1), loc=2, borderaxespad=0.)
 
         if self._chart_options["tight_layout"]:
-            plt.tight_layout()
+            ax, fig = self._set_tight_layout(ax,fig)
 
-        return fig,ax
+        return fig, ax
 
-    def test_chart(self, frame_no=None, as_pil = True):
+    def test_chart(self, frame_no=None, as_pil=True):
         """
         Use prior to video creation to test output.
         :param frame_no: (int / None) if None a random position on the timeline is selected.
@@ -700,10 +711,10 @@ class LineWriter(_base_writer):
         if frame_no == None:
             frame_no = np.random.randint(0, len(self._video_options["unique_dates"]) - 1)
 
-        fig,ax  = self.get_chart(self._video_df)
+        fig, ax = self.get_chart(self._video_df)
         dates = self._video_df[self.timeseries_col].unique()
 
-        img = self.set_lim_and_save(ax,fig,dates[frame_no])
+        img = self.set_lim_and_save(ax, fig, dates[frame_no])
 
         if as_pil:
             return PIL.Image.fromarray(img)
@@ -716,17 +727,17 @@ class LineWriter(_base_writer):
         lims = ax.get_xlim()
         to_ord = pd.to_datetime(dte_to).toordinal()
         if str(lims[1]).find(".") >= 0 and str(to_ord).find(".") == -1:
-            add = float(str(lims[1]).split(".")[-1])/10
+            add = float(str(lims[1]).split(".")[-1]) / 10
         else:
             add = 0
 
         self._video_df
-        ax.set_xlim(lims[0],to_ord + add )
+        ax.set_xlim(lims[0], to_ord + add)
 
         df = self._video_df[self._video_df[self.timeseries_col] == dte_to][self.value_col]
         maxx = df.max()
         minn = df.min()
-        ax.set_ylim(minn-(maxx*.025), maxx*1.05)
+        ax.set_ylim(minn - (maxx * .025), maxx * 1.05)
         # save fig and reread as np array
         return self._get_numpy(fig)
 
@@ -737,7 +748,6 @@ class LineWriter(_base_writer):
         last = False
 
         for x in range(times):
-
             # if first frame write the original data
 
             out_writer.write(img)
