@@ -303,7 +303,7 @@ class _base_writer:
             self._video_df = self._video_df_base.copy()
 
         max_len = len(max(self._video_df[self.category_col], key=len))
-        self._video_df[self.category_col] = self._video_df[self.category_col].apply(lambda x: x.rjust(max_len))
+        self._video_df.loc[:, self.category_col] = self._video_df[self.category_col].apply(lambda x: x.rjust(max_len))
 
         # unique values for palette colours
         if palette_keep:
@@ -628,7 +628,7 @@ class BarWriter(_base_writer):
 
             # if first frame write the original data
             if x == 0:
-                out_writer.write(img)
+                out_writer.write(img[:,:,::-1])
                 try:
                     df_date1 = self._get_date_df(i + 1, df_date[self.category_col])
                     temp_df = df_date.merge(df_date1.set_index(self.category_col)[self.value_col],
@@ -645,7 +645,7 @@ class BarWriter(_base_writer):
                     if self._chart_options["sort"]:
                         temp_df = temp_df.sort_values([self.value_col, self.category_col])
                     img = self.get_chart(temp_df)
-                out_writer.write(img)
+                out_writer.write(img[:,:,::-1])
 
             # increment loops
             self._video_options['looptimes'] += 1
