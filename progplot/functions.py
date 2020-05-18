@@ -89,3 +89,6 @@ def write_text(text, img):
     img1 = cv2.putText(img_rot, text, (6, 50), cv2.FONT_HERSHEY_SIMPLEX, .65, (255, 255, 255), 1)
     img_rot = cv2.rotate(img1, cv2.ROTATE_90_CLOCKWISE)
     return img_rot
+
+def tick_transform(x, pos):
+        return '${:,.1f}M'.format(x * 1e-6)

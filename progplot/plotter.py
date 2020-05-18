@@ -17,16 +17,15 @@ from progplot.functions import convert, get_bar
 import matplotlib.dates as mdates
 from random import shuffle
 import os
+import matplotlib.patheffects as PathEffects
 
 class _base_writer:
 
-    def __init__(self, df=None, verbose=1):
+    def __init__(self, verbose=1):
         """
         Init of the bar writer.
 
         """
-        self.df = df.reset_index(drop=True)
-
         self.category_col = None
         self.timeseries_col = None
         self.value_col = None
@@ -39,11 +38,12 @@ class _base_writer:
         self._keep_history = None
         self._verbose = verbose
 
-    def set_data(self, category_col, timeseries_col, value_col,
+    def set_data(self, data, category_col, timeseries_col, value_col,
                  groupby_agg="sum", resample_agg="sum", output_agg="cumsum", resample=None):
         """
         Used to set the data prior to chart creation.
 
+        :param data (pandas Dataframe): input data, must have datetime values, categorical values and numerical values (or other if using count aggregation)
         :param category_col: (str) the name of pandas column that holds the categorical data
         :param timeseries_col: (str) the name of pandas column that holds the timeseries data
         :param value_col: (str) the name of pandas column that holds the value data you want to measure - if aggregation is set to "count" this can be a coloumn containing strings
@@ -53,6 +53,9 @@ class _base_writer:
         :param resample: (str) pandas resample arg - resampling is necessary to normalize the dates. Use options (y,m,d,h,s,m,ms etc) i.e "2d" for sampling every 2 days, "1y" for every year. "6m" for six months etc.
         :return: None
         """
+
+        assert type(data) == pd.DataFrame, "Input data must be a data frame"
+        self.df = data
 
         assert type(
             category_col) == str and category_col in self.df.columns, "category_col is not str or not in dataframe columns"
@@ -256,9 +259,9 @@ class _base_writer:
 
     def set_chart_options(self, use_top_x=None, display_top_x=None, x_tick_format=None, y_tick_format=None,
                           dateformat=None, y_label=True, y_label_font_size=None, x_label=True, x_label_font_size=None,
-                          title=None, title_font_size=None, figsize=(14, 8), dpi=100, border_size=None,
-                          border_colour=(0, 0, 0), palette="magma", palette_keep=True, palette_random=True,
-                          tight_layout=True, sort=True):
+                          title=None, title_font_size=None, use_data_labels="base", figsize=(14, 8),
+                          dpi=100, border_size=None, border_colour=(0, 0, 0), palette="magma", palette_keep=True,
+                          palette_random=True, tight_layout=True, sort=True):
         """
 
 
@@ -281,8 +284,10 @@ class _base_writer:
                chart and be replaced with a previously unseen value that was not "Displayed" before but was present
                in the data.
 
-        :param x_tick_format: (str) either "0" string number for decimals 0=none or "%Y-%d" date time like formatting
-        :param y_tick_format: (str) either "0" string number for decimals 0=none or "%Y-%d" date time like formatting
+        :param x_tick_format: (str) string formatting i.e "£{:.2f}" £2.25 or "%Y-%d" date time like formatting
+                              None = no formatting
+        :param y_tick_format: (str) string formatting i.e "£{:.2f}" £2.25 or "%Y-%d" date time like formatting
+                              None = no formatting
         :param dateformat: (str) formatting for title datetime display. in strftime format.
 
         :param figsize: (tuple) matplotlib figsize
@@ -299,6 +304,8 @@ class _base_writer:
 
         :param title: (str) Label for title that will prefix the default title "from MAXDATETIME to CURRENTDATETIME"
         :param title_font_size: (int) font size for title (None = style default)
+
+        :param use_data_labels: (str/ None) No datalabels if None - "base" datalabels at base of bar "end" for at end
 
         :param palette: (str) matplotlib style palette name
         :param palette_keep: (bool) If True chart colours are pinned to categories False colours are pinned to positions
@@ -359,7 +366,8 @@ class _base_writer:
                                "sort": sort,
                                "border_size":border_size,
                                "border_colour":border_colour,
-                               "title_font_size":title_font_size
+                               "title_font_size":title_font_size,
+                               "use_data_labels":use_data_labels
                                }
 
 
@@ -406,25 +414,37 @@ class _base_writer:
             ax.set_title(ax.get_title(),fontsize=self._chart_options['title_font_size'])
 
         # check and set x_tick_format
-        if self._chart_options["x_tick_format"] != None and self._chart_options["x_tick_format"].find("%") >= 0:
-            fmt = mdates.DateFormatter(self._chart_options["x_tick_format"])
-        elif self._chart_options["x_tick_format"] != None and self._chart_options["x_tick_format"].isnumeric():
-            fmt = StrMethodFormatter(f'{{x:.{self._chart_options["x_tick_format"]}f}}')
+        fmtX = None
 
-        ax.xaxis.set_major_formatter(fmt)
+        if self._chart_options["x_tick_format"] != None and self._chart_options["x_tick_format"].find("%") >= 0:
+            fmtX = mdates.DateFormatter(self._chart_options["x_tick_format"])
+        elif self._chart_options["x_tick_format"] != None:
+            formatting = self.add_x_to_formatting_for_matplotlib(self._chart_options["x_tick_format"])
+            fmtX = StrMethodFormatter(formatting)
+
+        if fmtX != None:
+            ax.xaxis.set_major_formatter(fmtX)
 
         # check and set y_tick_format
+        fmtY = None
 
         if self._chart_options["y_tick_format"] != None and self._chart_options["y_tick_format"].find("%") >= 0:
+            fmtY = mdates.DateFormatter(self._chart_options["y_tick_format"])
+        elif self._chart_options["y_tick_format"] != None:
+            formatting = self.add_x_to_formatting_for_matplotlib(self._chart_options["y_tick_format"])
+            fmtY = StrMethodFormatter(formatting)
 
-            fmt = mdates.DateFormatter(self._chart_options["y_tick_format"])
-            ax.yaxis.set_major_formatter(fmt)
-
-        elif self._chart_options["y_tick_format"] != None and self._chart_options["y_tick_format"].isnumeric():
-            fmt = StrMethodFormatter(f'{{x:.{self._chart_options["y_tick_format"]}f}}')
-            ax.yaxis.set_major_formatter(fmt)
+        if fmtY != None:
+            ax.yaxis.set_major_formatter(fmtY)
 
         return ax, fig
+
+    def add_x_to_formatting_for_matplotlib(self, text):
+        text = self._chart_options["x_tick_format"]
+        if text.find("x") == -1:
+            pos = text.find("{") + 1
+            return text[:pos] + "x" + text[pos:]
+
 
     def set_display_settings(self, fps=30, time_in_seconds=None,  video_file_name="output.webm", codec="VP90"):
         """
@@ -506,7 +526,7 @@ class _base_writer:
 
             if i == 0:
                 # set writer
-                fourcc = cv2.VideoWriter_fourcc(*'VP80')
+                fourcc = cv2.VideoWriter_fourcc(*'VP90')
                 out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                       fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
 
@@ -652,11 +672,67 @@ class _base_writer:
 
         return temp_df
 
+    import matplotlib.patheffects as PathEffects
+
+    def _add_text_values(self, data, fig, ax, fontdict={"size": "large", "color": "white"}, formatting=None):
+
+        try:
+            fig.canvas.draw()
+        except:
+            raise ValueError("Issue with formatting needs to be in the format {:.2f} etc ")
+
+
+
+        for i, rect in enumerate(ax.patches):
+
+            label_txt = data[i]
+
+            if float(label_txt) != 0:
+
+                ext = ax.get_window_extent()
+
+                # locations for base
+                yloc = rect.get_y() + rect.get_height() / 2
+                xloc = rect.get_bbox().x0 + (ax.get_window_extent().x1 - ax.get_window_extent().x0) / 96 * .015
+
+                # locations for ends
+                # xlocin = rect.get_bbox().x1 *.975
+                # xlocout = rect.get_bbox().x1 *1.025
+
+                xlocout = rect.get_bbox().x1 - ((ext.width / 96) * .015)
+                xlocin = rect.get_bbox().x1 + ((ext.width / 96) * .015)
+
+                if self._chart_options["x_tick_format"] != None:
+
+                    label_txt = self._chart_options["x_tick_format"].format(label_txt)
+
+                if self._chart_options["use_data_labels"] == "base":
+                    # write inside end
+                    txt = ax.text(xloc, yloc, label_txt, verticalalignment='center', fontdict=fontdict)
+                    # if outside chart range then redraw outside end
+                    # if txt.get_window_extent().x1 > rect.get_window_extent().x1*.975:
+                    #    print("HERE")
+                    #    txt.set_visible(False)
+                    #    txt = ax.text(xlocout,yloc,data[i],verticalalignment='center',horizontalalignment='left',fontdict=fontdict)
+
+                elif self._chart_options["use_data_labels"] == "end":
+                    txt = ax.text(xlocin, yloc, label_txt, verticalalignment='center', horizontalalignment='left',
+                                  fontdict=fontdict)
+                    if txt.get_window_extent().x1 > ext.x1:
+                        if xlocout == 0:
+                            xlocout += 0.05
+                        txt.set_visible(False)
+                        txt = ax.text(xlocout, yloc, label_txt, verticalalignment='center', horizontalalignment='right',
+                                      fontdict=fontdict)
+
+                txt.set_path_effects([PathEffects.withStroke(linewidth=3, foreground='black')])
+
+        return fig, ax
 
 class BarWriter(_base_writer):
 
-    def __init__(self, df):
-        super().__init__(df)
+    def __init__(self, verbose=1):
+        super().__init__(verbose)
         self._keep_history = False
 
     def get_chart(self, df_date):
@@ -682,6 +758,10 @@ class BarWriter(_base_writer):
         _ = [x.set_linewidth(0) for x in ax.get_children() if type(x) == matplotlib.patches.Rectangle and x.get_width() == 0]
 
         ax, fig = self.set_chart_axis(ax, fig, df_date)
+
+        if self._chart_options["use_data_labels"] != None:
+            lst = list(df_date[self.value_col])
+            self._add_text_values(lst,fig,ax)
 
         if self._chart_options["tight_layout"]:
             ax, fig = self._set_tight_layout(ax,fig)
@@ -731,8 +811,8 @@ class BarWriter(_base_writer):
 
 class LineWriter(_base_writer):
 
-    def __init__(self, df):
-        super().__init__(df)
+    def __init__(self, verbose=1):
+        super().__init__(verbose)
         self._keep_history = True
 
     def write_video(self, output_html=True, limit_frames=None):
@@ -759,7 +839,7 @@ class LineWriter(_base_writer):
 
             if i == 0:
                 # set writer
-                fourcc = cv2.VideoWriter_fourcc(*'VP80')
+                fourcc = cv2.VideoWriter_fourcc(*'VP90')
                 out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                       fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
 
