@@ -537,11 +537,6 @@ class _base_writer:
                 if self._video_options['looptimes'] > limit_frames:
                     break
 
-            if i % 5 == 0:
-                from pympler import asizeof
-                print(asizeof.asizeof(self))
-
-                print(asizeof.asized(self, detail=1).format())
 
         # finalize file
         out.release()
