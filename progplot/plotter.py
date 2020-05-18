@@ -1,6 +1,7 @@
 import datetime
 
 import datetime
+import gc
 
 import PIL
 import matplotlib
@@ -13,7 +14,7 @@ from IPython.display import HTML
 import ffmpy
 from matplotlib.ticker import StrMethodFormatter
 
-from progplot.functions import convert, get_bar
+from progplot.functions import convert, get_bar, print_usage,get_size
 import matplotlib.dates as mdates
 from random import shuffle
 import os
@@ -536,8 +537,17 @@ class _base_writer:
                 if self._video_options['looptimes'] > limit_frames:
                     break
 
+            if i % 5 == 0:
+                from pympler import asizeof
+                print(asizeof.asizeof(self))
+
+                print(asizeof.asized(self, detail=1).format())
+
         # finalize file
         out.release()
+
+        del out
+
         if self._verbose == 1:
             print("\nVideo creation complete")
 
@@ -674,60 +684,87 @@ class _base_writer:
 
     import matplotlib.patheffects as PathEffects
 
-    def _add_text_values(self, data, fig, ax, fontdict={"size": "large", "color": "white"}, formatting=None):
+    def _add_text_values(self, data, fig, ax, fontdict={"size": "medium", "color": "white"}, formatting=None):
+
+        #if float(label_txt) != 0:
 
         try:
             fig.canvas.draw()
         except:
-            raise ValueError("Issue with formatting needs to be in the format {:.2f} etc ")
-
-
+            raise ValueError("Issue with formatting needs to be in the format {:.2f} etc or None")
 
         for i, rect in enumerate(ax.patches):
 
             label_txt = data[i]
 
-            if float(label_txt) != 0:
+            #format data
+            if self._chart_options["x_tick_format"] != None:
+                label_txt = self._chart_options["x_tick_format"].format(label_txt)
 
-                ext = ax.get_window_extent()
+            ext = ax.get_window_extent()
 
-                # locations for base
-                yloc = rect.get_y() + rect.get_height() / 2
-                xloc = rect.get_bbox().x0 + (ax.get_window_extent().x1 - ax.get_window_extent().x0) / 96 * .015
+            extra_perc = 0.01
 
-                # locations for ends
-                # xlocin = rect.get_bbox().x1 *.975
-                # xlocout = rect.get_bbox().x1 *1.025
+            extra = ax.get_xlim()[1]* extra_perc
 
-                xlocout = rect.get_bbox().x1 - ((ext.width / 96) * .015)
-                xlocin = rect.get_bbox().x1 + ((ext.width / 96) * .015)
+            # locations for base
+            yloc_middle_bar = rect.get_y() + rect.get_height() / 2
+            xloc_begg_bar = rect.get_bbox().x0 + extra
+            xloc_end_bar = rect.get_bbox().x1 + extra
+            xloc_inside_bar = rect.get_bbox().x1 - extra
 
-                if self._chart_options["x_tick_format"] != None:
+            if self._chart_options["use_data_labels"] == "base":
+                txt = ax.text(xloc_begg_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
+                              fontdict=fontdict)
 
-                    label_txt = self._chart_options["x_tick_format"].format(label_txt)
+            elif self._chart_options["use_data_labels"] == "end":
 
-                if self._chart_options["use_data_labels"] == "base":
-                    # write inside end
-                    txt = ax.text(xloc, yloc, label_txt, verticalalignment='center', fontdict=fontdict)
-                    # if outside chart range then redraw outside end
-                    # if txt.get_window_extent().x1 > rect.get_window_extent().x1*.975:
-                    #    print("HERE")
-                    #    txt.set_visible(False)
-                    #    txt = ax.text(xlocout,yloc,data[i],verticalalignment='center',horizontalalignment='left',fontdict=fontdict)
+                txt = ax.text(xloc_end_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
+                              fontdict=fontdict)
 
-                elif self._chart_options["use_data_labels"] == "end":
-                    txt = ax.text(xlocin, yloc, label_txt, verticalalignment='center', horizontalalignment='left',
-                                  fontdict=fontdict)
-                    if txt.get_window_extent().x1 > ext.x1:
-                        if xlocout == 0:
-                            xlocout += 0.05
-                        txt.set_visible(False)
-                        txt = ax.text(xlocout, yloc, label_txt, verticalalignment='center', horizontalalignment='right',
-                                      fontdict=fontdict)
+                if txt.get_window_extent().x1 > ax.get_window_extent().x1:
+                    txt.set_visible(False)
+                    txt = ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
+                                  horizontalalignment="right", fontdict=fontdict)
 
-                txt.set_path_effects([PathEffects.withStroke(linewidth=3, foreground='black')])
+                if txt.get_window_extent().x0 == 0:
+                    pass
+            else:
+                pass
 
-        return fig, ax
+
+            #remove value if data = 0 and start =
+            if data[i] == 0 and rect.get_window_extent().x0 != ax.get_window_extent().x0:
+                txt.set_visible(False)
+
+            #strokes?
+
+            stroke = int(fig.get_window_extent().x1*0.0015)
+
+            #label text
+            _ = txt.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')])
+
+            # x label
+            #xlab = ax.set_xlabel(ax.get_xlabel(), color="white")
+            #xlab.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')])
+
+            # y label
+            #ylab = ax.set_ylabel(ax.get_ylabel(), color="white")
+            #ylab.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')])
+
+            #title
+            #ylab = ax.set_title(ax.get_title(), color="white")
+            #ylab.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')])
+
+            #x ticks
+            #_ = [x.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')]) for x in
+            #     ax.get_xticklabels()]
+            #_ = [x.set_color("white") for x in ax.get_xticklabels()]
+
+            #y ticks
+            #_ = [x.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')]) for x in
+            #     ax.get_yticklabels()]
+            #_ = [x.set_color("white") for x in ax.get_yticklabels()]
 
 class BarWriter(_base_writer):
 
@@ -840,6 +877,7 @@ class LineWriter(_base_writer):
             if i == 0:
                 # set writer
                 fourcc = cv2.VideoWriter_fourcc(*'VP90')
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
                 out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                       fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
 
@@ -849,6 +887,7 @@ class LineWriter(_base_writer):
             if limit_frames != None:
                 if self._video_options['looptimes'] > limit_frames:
                     break
+
 
         # finalize file
         out.release()

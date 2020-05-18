@@ -65,7 +65,7 @@ def get_pallete(as_pil=True):
 def get_np_pallette(pal):
     palette = sns.color_palette(pal, n_colors=10)
     for i, x in enumerate(palette):
-        base = np.ones([12, 80, 3]).astype(np.uint8)
+        base = np.ones([15, 100, 3]).astype(np.uint8)
         base[:, :, 0], base[:, :, 1], base[:, :, 2] = x[0] * 255, x[1] * 255, x[2] * 255
 
         if i == 0:
@@ -92,3 +92,34 @@ def write_text(text, img):
 
 def tick_transform(x, pos):
         return '${:,.1f}M'.format(x * 1e-6)
+
+import sys
+
+def print_usage():
+    sizes = {}
+    for name, val in globals().items():
+        sizes[name] = sys.getsizeof(val) * 1e-6
+    print(f"len of vars = {len(sizes)}")
+    print(sorted(sizes.items(), key=lambda item:item[1])[-3:])
+
+import sys
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
