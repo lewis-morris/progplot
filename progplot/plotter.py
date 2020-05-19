@@ -396,46 +396,46 @@ class _base_writer:
 
 
 
-    def set_chart_axis(self, ax, fig, date_df):
+    def set_chart_axis(self, date_df):
 
         # set labels
 
         #set x label if needed
         if self._chart_options['x_label'] == False:
-            ax.xaxis.label.set_visible(False)
+            self._ax.xaxis.label.set_visible(False)
         elif self._chart_options['x_label'] == True:
             pass
         else:
-            ax.set_ylabel(self._chart_options['x_label'])
+            self._ax.set_ylabel(self._chart_options['x_label'])
         #set font size
         if self._chart_options["x_label_font_size"] != None:
-            ax.set_xlabel(ax.get_xlabel(), fontsize=self._chart_options['x_label_font_size'])
+            self._ax.set_xlabel(self._ax.get_xlabel(), fontsize=self._chart_options['x_label_font_size'])
 
         #set y label if needed
         if self._chart_options['y_label'] == False:
-            ax.yaxis.label.set_visible(False)
+            self._ax.yaxis.label.set_visible(False)
         elif self._chart_options['y_label'] == True:
             pass
         else:
-            ax.set_ylabel(self._chart_options['y_label'])
+            self._ax.set_ylabel(self._chart_options['y_label'])
 
         #set font size
         if self._chart_options["y_label_font_size"] != None:
-            ax.set_ylabel(ax.get_ylabel(), fontsize=self._chart_options['y_label_font_size'])
+            self._ax.set_ylabel(self._ax.get_ylabel(), fontsize=self._chart_options['y_label_font_size'])
 
 
         # set chart title
         if self._chart_options['dateformat'] == None:
-            ax.set_title(
+            self._ax.set_title(
                 f"{self._chart_options['title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col]))} To {pd.to_datetime(date_df[self.timeseries_col].iloc[0])}")
         else:
-            ax.set_title(
+            self._ax.set_title(
                 f"{self._chart_options['title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col])).strftime(self._chart_options['dateformat'])} To"
                 f" {pd.to_datetime(date_df[self.timeseries_col].iloc[0]).strftime(self._chart_options['dateformat'])}")
 
         #set fontsize of title
         if self._chart_options['title_font_size'] != None:
-            ax.set_title(ax.get_title(),fontsize=self._chart_options['title_font_size'])
+            self._ax.set_title(self._ax.get_title(),fontsize=self._chart_options['title_font_size'])
 
         # check and set x_tick_format
         fmtX = None
@@ -447,7 +447,7 @@ class _base_writer:
             fmtX = StrMethodFormatter(formatting)
 
         if fmtX != None:
-            ax.xaxis.set_major_formatter(fmtX)
+            self._ax.xaxis.set_major_formatter(fmtX)
 
         # check and set y_tick_format
         fmtY = None
@@ -459,9 +459,8 @@ class _base_writer:
             fmtY = StrMethodFormatter(formatting)
 
         if fmtY != None:
-            ax.yaxis.set_major_formatter(fmtY)
+            self._ax.yaxis.set_major_formatter(fmtY)
 
-        return ax, fig
 
     def add_x_to_formatting_for_matplotlib(self, text):
         text = self._chart_options["x_tick_format"]
@@ -631,26 +630,26 @@ class _base_writer:
                     alt = "Gif Output">
                 """)
 
-    def _set_tight_layout(self, ax, fig):
+    def _set_tight_layout(self):
 
             plt.tight_layout()
-            ax.get_figure().canvas.draw()
-            chart_x1 = ax.get_window_extent().x1
-            ticks = [tick.get_position()[0] for tick in ax.get_xticklabels() if tick.get_window_extent().x1 < chart_x1]
-            _ = ax.set_xticks(ticks)
+            self._ax.get_figure().canvas.draw()
+            chart_x1 = self._ax.get_window_extent().x1
+            ticks = [tick.get_position()[0] for tick in self._ax.get_xticklabels() if tick.get_window_extent().x1 < chart_x1]
+            self._ax.set_xticks(ticks)
             plt.tight_layout()
-            return ax,fig
 
 
-    def _get_numpy(self, fig):
+    def _get_numpy(self):
 
         #fig.savefig("temp_out.png")
         #plt.close(fig)
         #return cv2.imread("temp_out.png")[:,:,::-1]
 
-        can = _subCan(fig)
-        plt.close(fig)
-        return can.get_arr()[:, :, :3]
+        can = _subCan(self._fig)
+        plt.close(self._fig)
+        arr = can.get_arr()[:, :, :3]
+        return arr
 
     def _write_log(self, start, i, unique_dates):
 
@@ -708,20 +707,20 @@ class _base_writer:
 
     import matplotlib.patheffects as PathEffects
 
-    def _add_text_values(self, data, fig, ax, fontdict={"size": "large", "color": "white"}, formatting=None):
+    def _add_text_values(self, data, fontdict={"size": "large", "color": "white"}, formatting=None):
 
         #if float(label_txt) != 0:
 
         try:
-            fig.canvas.draw()
+            self._fig.canvas.draw()
         except:
             raise ValueError("Issue with formatting needs to be in the format {:.2f} etc or None")
 
-        for i, rect in enumerate(ax.patches):
+        for i, rect in enumerate(self._ax.patches):
 
 
             #remove value if data = 0 and start =
-            if data[i] != 0 and rect.get_window_extent().x0 == ax.get_window_extent().x0:
+            if data[i] != 0 and rect.get_window_extent().x0 == self._ax.get_window_extent().x0:
 
                 label_txt = data[i]
 
@@ -729,11 +728,11 @@ class _base_writer:
                 if self._chart_options["x_tick_format"] != None:
                     label_txt = self._chart_options["x_tick_format"].format(label_txt)
 
-                ext = ax.get_window_extent()
+                ext = self._ax.get_window_extent()
 
                 extra_perc = 0.005
 
-                extra = ax.get_xlim()[1]* extra_perc
+                extra = self._ax.get_xlim()[1]* extra_perc
 
                 # locations for base
                 yloc_middle_bar = rect.get_y() + rect.get_height() / 2
@@ -742,17 +741,17 @@ class _base_writer:
                 xloc_inside_bar = rect.get_bbox().x1 - extra
 
                 if self._chart_options["use_data_labels"] == "base":
-                    txt = ax.text(xloc_begg_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
+                    txt = self._ax.text(xloc_begg_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
                                   fontdict=fontdict)
 
                 elif self._chart_options["use_data_labels"] == "end":
 
-                    txt = ax.text(xloc_end_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
+                    txt = self._ax.text(xloc_end_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
                                   fontdict=fontdict)
 
-                    if txt.get_window_extent().x1 > ax.get_window_extent().x1:
+                    if txt.get_window_extent().x1 > self._ax.get_window_extent().x1:
                         txt.set_visible(False)
-                        txt = ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
+                        txt = self._ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
                                       horizontalalignment="right", fontdict=fontdict)
 
                     if txt.get_window_extent().x0 == 0:
@@ -764,8 +763,8 @@ class _base_writer:
 
                 #strokes?
 
-                stroke = int(fig.get_window_extent().x1*0.0015)
-                _ = txt.set_path_effects([PathEffects.withStroke(linewidth=stroke*1,
+                stroke = int(self._fig.get_window_extent().x1*0.0015)
+                txt.set_path_effects([PathEffects.withStroke(linewidth=stroke*1,
                                                                  foreground=self._chart_options["border_colour"])])
 
 
@@ -776,17 +775,19 @@ class BarWriter(_base_writer):
         self._keep_history = False
 
     def get_chart(self, df_date):
-        import matplotlib.pyplot as plt
+
+        plt.ioff()
+
         # get plot
-        fig = plt.figure(figsize=self._chart_options["figsize"], dpi=self._chart_options["dpi"])
+        self._fig = plt.figure(figsize=self._chart_options["figsize"], dpi=self._chart_options["dpi"])
 
         if self._chart_options["border_size"] == None:
-            ax = sns.barplot(y=self.category_col,
+            self._ax = sns.barplot(y=self.category_col,
                              x=self.value_col,
                              data=df_date,
                              palette=self._chart_options['palette'])
         else:
-            ax = sns.barplot(y=self.category_col,
+            self._ax = sns.barplot(y=self.category_col,
                              x=self.value_col,
                              data=df_date,
                              palette=self._chart_options['palette'],
@@ -795,25 +796,22 @@ class BarWriter(_base_writer):
                              )
 
         #set line to 0 if no value
-        _ = [x.set_linewidth(0) for x in ax.get_children() if type(x) == matplotlib.patches.Rectangle and x.get_width() == 0]
+        [x.set_linewidth(0) for x in self._ax.get_children() if type(x) == matplotlib.patches.Rectangle and x.get_width() == 0]
 
-        ax, fig = self.set_chart_axis(ax, fig, df_date)
+        self.set_chart_axis(df_date)
 
         if self._chart_options["use_data_labels"] != None:
             lst = list(df_date[self.value_col])
-            self._add_text_values(lst,fig,ax)
+            self._add_text_values(lst)
 
         if self._chart_options["tight_layout"]:
-            ax, fig = self._set_tight_layout(ax,fig)
+            self._set_tight_layout()
 
 
         # save fig and reread as np array
-        nump = self._get_numpy(fig)
+        nump = self._get_numpy()
 
-        del ax
-        del fig
-        del plt
-
+        plt.ion()
         return nump
 
     def write_extra_frames(self, i, img, df_date):
@@ -878,7 +876,7 @@ class LineWriter(_base_writer):
 
         # squeeze if TEST mode
 
-        fig, ax = self.get_chart(self._video_df)
+        self.get_chart(self._video_df)
 
         for i, dte in enumerate(self._video_options["unique_dates"]):
 
@@ -919,14 +917,16 @@ class LineWriter(_base_writer):
                           palette=self._chart_options['palette'],
                           estimator=None)
 
-        ax, fig = self.set_chart_axis(ax, fig, df_date)
+        self._fig = fig
+        self._ax = ax
+
+        self.set_chart_axis(df_date)
 
         plt.legend(bbox_to_anchor=(1.0125, 1), loc=2, borderaxespad=0.)
 
         if self._chart_options["tight_layout"]:
-            ax, fig = self._set_tight_layout(ax,fig)
+            self._set_tight_layout()
 
-        return fig, ax
 
     def test_chart(self, frame_no=None, as_pil=True):
         """
@@ -940,20 +940,20 @@ class LineWriter(_base_writer):
         if frame_no == None:
             frame_no = np.random.randint(0, len(self._video_options["unique_dates"]) - 1)
 
-        fig, ax = self.get_chart(self._video_df)
+        self.get_chart(self._video_df)
         dates = self._video_df[self.timeseries_col].unique()
 
-        img = self.set_lim_and_save(ax, fig, dates[frame_no])
+        img = self.set_lim_and_save(dates[frame_no])
 
         if as_pil:
             return PIL.Image.fromarray(img)
         else:
             return img
 
-    def set_lim_and_save(self, ax, fig, dte_to):
+    def set_lim_and_save(self, dte_to):
 
         plt.tight_layout()
-        lims = ax.get_xlim()
+        lims = self._ax.get_xlim()
         to_ord = pd.to_datetime(dte_to).toordinal()
         if str(lims[1]).find(".") >= 0 and str(to_ord).find(".") == -1:
             add = float(str(lims[1]).split(".")[-1]) / 10
@@ -961,14 +961,14 @@ class LineWriter(_base_writer):
             add = 0
 
         self._video_df
-        ax.set_xlim(lims[0], to_ord + add)
+        self._ax.set_xlim(lims[0], to_ord + add)
 
         df = self._video_df[self._video_df[self.timeseries_col] == dte_to][self.value_col]
         maxx = df.max()
         minn = df.min()
-        ax.set_ylim(minn - (maxx * .025), maxx * 1.05)
+        self._ax.set_ylim(minn - (maxx * .025), maxx * 1.05)
         # save fig and reread as np array
-        return self._get_numpy(fig)
+        return self._get_numpy()
 
     def write_extra_frames(self, i, out_writer, img, df_date):
 
