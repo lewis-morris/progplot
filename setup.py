@@ -6,7 +6,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='progplot',
-    version="0.1.11",
+    version="0.1.1",
     packages=['progplot'],
     url='https://github.com/lewis-morris/ProgPlot',
     license='MIT',
