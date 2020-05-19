@@ -87,12 +87,14 @@ class _base_writer:
             value_col) == str and value_col in self.df.columns, "value_col is not str or not in dataframe columns"
         self.value_col = value_col
 
-        assert type(groupby_agg) == str and groupby_agg in ["count", "mean",
-                                                            "sum"], 'groupby_agg is not str or not in ["count","mean","sum"]'
+        assert (type(groupby_agg) == str and groupby_agg in ["count", "mean","sum"]) or groupby_agg == None, \
+            'groupby_agg is not str or not in ["count","mean","sum"]'
+
         self.groupby_agg = groupby_agg
 
-        assert type(resample_agg) == str and resample_agg.lower() in ["count", "mean",
-                                                                      "sum"], 'resample_agg is not str or not in ["count","mean","sum"]'
+        assert (type(resample_agg) == str and resample_agg.lower() in ["count", "mean","sum"]) or resample_agg == None,\
+            'resample_agg is not str or not in ["count","mean","sum"]'
+
         self.resample_agg = resample_agg
 
         assert (type(output_agg) == str and (output_agg in [
@@ -857,9 +859,9 @@ class LineWriter(_base_writer):
         """
         Renders Video and saves to file - all settings need to be set piror to calling this function.
 
-        :param output_html: For Jupyter - will output the video as HTML
+        :param output_html: (bool) For Jupyter - True will output the video as HTML after render
         :param limit_frames: To limit frames to x number for testing i.e 20 will only render the first 20 frames.
-        :return:
+
         """
         assert self._video_options != {}, "Please set video settings first"
         assert limit_frames == None or type(limit_frames) == int, "limit_frames is not None or Int"
