@@ -1,11 +1,5 @@
+
 import datetime
-import matplotlib
-import datetime
-import gc
-
-
-
-
 import PIL
 import matplotlib
 import numpy as np
@@ -13,14 +7,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import cv2
+
 try:
     from IPython.display import HTML
 except:
     print("You may not be able to display outputs")
 
 from matplotlib.ticker import StrMethodFormatter
-
-from progplot.functions import convert, get_bar, print_usage,get_size
+from progplot.functions import convert, get_bar
 import matplotlib.dates as mdates
 from random import shuffle
 import os
