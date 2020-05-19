@@ -21,6 +21,7 @@ import os
 import matplotlib.patheffects as PathEffects
 
 class _subCan(matplotlib.backends.backend_agg.FigureCanvasAgg):
+
     def __init__(self, fig):
         super().__init__(fig)
 
@@ -56,6 +57,9 @@ class _base_writer:
         """
         Used to set the data prior to chart creation.
 
+        At this point a new dataframe is created to suit the settings. Depending on your choices this could take a
+        while to complete.
+
         :param data (pandas Dataframe): input data, must have datetime values, categorical values and numerical values (or other if using count aggregation)
         :param category_col: (str) the name of pandas column that holds the categorical data
         :param timeseries_col: (str) the name of pandas column that holds the timeseries data
@@ -66,6 +70,9 @@ class _base_writer:
         :param resample: (str) pandas resample arg - resampling is necessary to normalize the dates. Use options (y,m,d,h,s,m,ms etc) i.e "2d" for sampling every 2 days, "1y" for every year. "6m" for six months etc.
         :return: None
         """
+
+        if self._verbose == 1:
+            print("Creating resampled video dataframe (aggregating/ resampling). This may take a moment.")
 
         assert type(data) == pd.DataFrame, "Input data must be a data frame"
         self.df = data
@@ -100,6 +107,7 @@ class _base_writer:
         assert (type(output_agg) == str and (output_agg in [
             "cumsum"] or "rolling" in output_agg.lower())) or output_agg == None, 'output_agg is not None or not in ["cumsum"] or like "4rolling"]'
 
+
         self.resample_agg = resample_agg
 
         self.output_agg = output_agg
@@ -111,8 +119,7 @@ class _base_writer:
 
 
         # prepare df for redndering
-        if self._verbose == 1:
-            print("Creating resampled video dataframe (aggregating/ resampling). This may take a moment.")
+
         self._video_df_base = self._create_new_frame()
 
 
@@ -289,7 +296,8 @@ class _base_writer:
         use_top_x trims the dataframe down to the top x values.
         display_top_x shows only x categories on the chart.
 
-        You could then therefor keep 20 categories, only showing 10. The effect? The lowest values contend for there position and some may dissapear off the end of the chart and be replaced with new values IF their value is higher.
+        You could then therefor keep 20 categories, only showing 10. The effect? The lowest values contend for there
+        position and some may disappear off the end of the chart and be replaced with new values IF their value is higher.
 
         :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data.
                (the amount of data is sometimes to much to make visually appealing charts so trimming the data down
@@ -327,9 +335,9 @@ class _base_writer:
         :param palette_keep: (bool) If True chart colours are pinned to categories False colours are pinned to positions
                on the chart.
         :param palette_random: (bool) When the palette colours are created by default they are randomised and assigned
-               to each categorical value. This is becuase depending on the palette type and amount of data is can
+               to each categorical value. This is because depending on the palette type and amount of data is can
                sometimes be hard to determine the movement category (moving up and down the chart) when sort == True.
-               Randomising colours can help visullise the movement somewhat.
+               Randomising colours can help visualise the movement somewhat.
 
         :param tight_layout: (bool) use tight layout on plot to make sure all text fits. Sometimes causes chart to
                move when animated.
@@ -471,7 +479,8 @@ class _base_writer:
 
     def set_display_settings(self, fps=30, time_in_seconds=None,  video_file_name="output.webm", codec="VP90"):
         """
-        Used to set the video settings - at this point a new dataframe is created to suit the data. Depending on your choice of settings this could take a while to complete.
+
+        Used to set the video settings for rendering
 
         :param fps: (int) expected fps of video
         :param time_in_seconds: (int) rough expected running time of video in seconds if NONE then each datetime is displayed for 1 frame. This sometimes creates very FAST videos if there is limitied data.
