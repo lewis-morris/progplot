@@ -335,8 +335,8 @@ class _base_writer:
         :param sort: (bool) True data is sorted and chart positions change. I.e the highest values are reordered to
                the bottom of the chart.
 
-        :param seaborn_style (str) default "whitegrid" - see seaborn set_style docs
-        :param seaborn_context (str) default "paper
+        :param seaborn_style (str) default "whitegrid" - options darkgrid, whitegrid, dark, white, ticks
+        :param seaborn_context (str) default "paper  - None, or one of {paper, notebook, talk, poster}
         :param font_scale (float) default 1.1
 
 
