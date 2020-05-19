@@ -272,9 +272,10 @@ class _base_writer:
 
     def set_chart_options(self, use_top_x=None, display_top_x=None, x_tick_format=None, y_tick_format=None,
                           dateformat=None, y_label=True, y_label_font_size=None, x_label=True, x_label_font_size=None,
-                          title=None, title_font_size=None, use_data_labels="base", figsize=(14, 8),
+                          title=None, title_font_size=None, use_data_labels=None, figsize=(14, 8),
                           dpi=100, border_size=None, border_colour=(0, 0, 0), palette="magma", palette_keep=True,
-                          palette_random=True, tight_layout=True, sort=True):
+                          palette_random=True, tight_layout=True, sort=True, seaborn_style="whitegrid",
+                          seaborn_context="paper", font_scale=1.1):
         """
 
 
@@ -334,8 +335,16 @@ class _base_writer:
         :param sort: (bool) True data is sorted and chart positions change. I.e the highest values are reordered to
                the bottom of the chart.
 
+        :param seaborn_style (str) default "whitegrid" - see seaborn set_style docs
+        :param seaborn_context (str) default "paper
+        :param font_scale (float) default 1.1
+
+
         :return:
         """
+
+        sns.set_style(seaborn_style)
+        sns.set_context(seaborn_context, font_scale=font_scale)
 
         ##trim_dataframe
         if type(use_top_x) == int:
@@ -623,7 +632,7 @@ class _base_writer:
     def _set_tight_layout(self, ax, fig):
 
             plt.tight_layout()
-            #ax.get_figure().canvas.draw()
+            ax.get_figure().canvas.draw()
             chart_x1 = ax.get_window_extent().x1
             ticks = [tick.get_position()[0] for tick in ax.get_xticklabels() if tick.get_window_extent().x1 < chart_x1]
             _ = ax.set_xticks(ticks)
@@ -754,7 +763,8 @@ class _base_writer:
                 #strokes?
 
                 stroke = int(fig.get_window_extent().x1*0.0015)
-                _ = txt.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')])
+                _ = txt.set_path_effects([PathEffects.withStroke(linewidth=stroke*1,
+                                                                 foreground=self._chart_options["border_colour"])])
 
 
 class BarWriter(_base_writer):
