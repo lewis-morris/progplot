@@ -470,14 +470,14 @@ class _base_writer:
             return text[:pos] + "x" + text[pos:]
 
 
-    def set_display_settings(self, fps=30, time_in_seconds=None,  video_file_name="output.webm", codec="XVID"):
+    def set_display_settings(self, fps=30, time_in_seconds=None,  video_file_name="output.webm", codec="VP90"):
         """
         Used to set the video settings - at this point a new dataframe is created to suit the data. Depending on your choice of settings this could take a while to complete.
 
         :param fps: (int) expected fps of video
         :param time_in_seconds: (int) rough expected running time of video in seconds if NONE then each datetime is displayed for 1 frame. This sometimes creates very FAST videos if there is limitied data.
         :param video_file_name: (str) desired output file - must be "xxx.webm"
-        :param codec: (str) from list "VP80", "VP90", "XVID", "MP4V".  DEFAULT is VP90 and is open source web format for videos. VP80/90 must have ".webm" for file extension / others must have ".mp4"
+        :param codec: (str) from list "VP80", "VP90", "XVID", "MP4V".  DEFAULT is VP90 and is open source web format for videos. VP80/90 must have ".webm" for file extension / XVID ".avi" MP4V ".mp4"
         :return:
         """
         # save file name
