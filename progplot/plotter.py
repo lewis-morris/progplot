@@ -416,7 +416,7 @@ class _base_writer:
         # set chart title
         if self._chart_options['dateformat'] == None:
             ax.set_title(
-                f"{self._chart_options['title']} From {pd.to_datetime(min(self._chart_options[self.timeseries_col]))} To {pd.to_datetime(date_df[self.timeseries_col].iloc[0])}")
+                f"{self._chart_options['title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col]))} To {pd.to_datetime(date_df[self.timeseries_col].iloc[0])}")
         else:
             ax.set_title(
                 f"{self._chart_options['title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col])).strftime(self._chart_options['dateformat'])} To"
