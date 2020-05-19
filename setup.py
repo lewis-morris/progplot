@@ -6,12 +6,12 @@ with open('requirements.txt') as f:
 
 setup(
     name='progplot',
-    version="0.25.5",
+    version="0.1.5",
     packages=['progplot'],
     url='https://github.com/lewis-morris/ProgPlot',
     license='MIT',
     author='Lewis Morris',
     author_email='lewis.morris@gmail.com',
-    description='',
+    description='progplot - Timeseries barplot animations.',
     install_requires=required,
 )

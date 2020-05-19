@@ -1,7 +1,10 @@
 import datetime
-
+import matplotlib
 import datetime
 import gc
+
+
+
 
 import PIL
 import matplotlib
@@ -10,8 +13,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import cv2
-from IPython.display import HTML
-import ffmpy
+try:
+    from IPython.display import HTML
+except:
+    print("You may not be able to display outputs")
+
 from matplotlib.ticker import StrMethodFormatter
 
 from progplot.functions import convert, get_bar, print_usage,get_size
@@ -19,6 +25,18 @@ import matplotlib.dates as mdates
 from random import shuffle
 import os
 import matplotlib.patheffects as PathEffects
+
+class _subCan(matplotlib.backends.backend_agg.FigureCanvasAgg):
+    def __init__(self, fig):
+        super().__init__(fig)
+
+    def get_arr(self, *args,
+                metadata=None, pil_kwargs=None,
+                **kwargs):
+
+        buf, size = self.print_to_buffer()
+
+        return np.frombuffer(buf, np.uint8).reshape((size[1], size[0], 4))
 
 class _base_writer:
 
@@ -447,7 +465,7 @@ class _base_writer:
             return text[:pos] + "x" + text[pos:]
 
 
-    def set_display_settings(self, fps=30, time_in_seconds=None,  video_file_name="output.webm", codec="VP90"):
+    def set_display_settings(self, fps=30, time_in_seconds=None,  video_file_name="output.webm", codec="XVID"):
         """
         Used to set the video settings - at this point a new dataframe is created to suit the data. Depending on your choice of settings this could take a while to complete.
 
@@ -527,11 +545,11 @@ class _base_writer:
 
             if i == 0:
                 # set writer
-                fourcc = cv2.VideoWriter_fourcc(*'VP90')
-                out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
+                fourcc = cv2.VideoWriter_fourcc(*self._video_options["fourcc"])
+                self._out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                       fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
 
-            out = self.write_extra_frames(i, out, img, df_date)
+            self.write_extra_frames(i, img, df_date)
 
             if limit_frames != None:
                 if self._video_options['looptimes'] > limit_frames:
@@ -539,9 +557,9 @@ class _base_writer:
 
 
         # finalize file
-        out.release()
+        self._out.release()
 
-        del out
+        del self._out
 
         if self._verbose == 1:
             print("\nVideo creation complete")
@@ -611,17 +629,23 @@ class _base_writer:
     def _set_tight_layout(self, ax, fig):
 
             plt.tight_layout()
-            ax.get_figure().canvas.draw()
+            #ax.get_figure().canvas.draw()
             chart_x1 = ax.get_window_extent().x1
             ticks = [tick.get_position()[0] for tick in ax.get_xticklabels() if tick.get_window_extent().x1 < chart_x1]
             _ = ax.set_xticks(ticks)
             plt.tight_layout()
             return ax,fig
 
+
     def _get_numpy(self, fig):
-        fig.savefig("temp_out.png")
+
+        #fig.savefig("temp_out.png")
+        #plt.close(fig)
+        #return cv2.imread("temp_out.png")[:,:,::-1]
+
+        can = _subCan(fig)
         plt.close(fig)
-        return cv2.imread("temp_out.png")[:,:,::-1]
+        return can.get_arr()[:, :, :3]
 
     def _write_log(self, start, i, unique_dates):
 
@@ -679,7 +703,7 @@ class _base_writer:
 
     import matplotlib.patheffects as PathEffects
 
-    def _add_text_values(self, data, fig, ax, fontdict={"size": "medium", "color": "white"}, formatting=None):
+    def _add_text_values(self, data, fig, ax, fontdict={"size": "large", "color": "white"}, formatting=None):
 
         #if float(label_txt) != 0:
 
@@ -690,76 +714,54 @@ class _base_writer:
 
         for i, rect in enumerate(ax.patches):
 
-            label_txt = data[i]
-
-            #format data
-            if self._chart_options["x_tick_format"] != None:
-                label_txt = self._chart_options["x_tick_format"].format(label_txt)
-
-            ext = ax.get_window_extent()
-
-            extra_perc = 0.01
-
-            extra = ax.get_xlim()[1]* extra_perc
-
-            # locations for base
-            yloc_middle_bar = rect.get_y() + rect.get_height() / 2
-            xloc_begg_bar = rect.get_bbox().x0 + extra
-            xloc_end_bar = rect.get_bbox().x1 + extra
-            xloc_inside_bar = rect.get_bbox().x1 - extra
-
-            if self._chart_options["use_data_labels"] == "base":
-                txt = ax.text(xloc_begg_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
-                              fontdict=fontdict)
-
-            elif self._chart_options["use_data_labels"] == "end":
-
-                txt = ax.text(xloc_end_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
-                              fontdict=fontdict)
-
-                if txt.get_window_extent().x1 > ax.get_window_extent().x1:
-                    txt.set_visible(False)
-                    txt = ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
-                                  horizontalalignment="right", fontdict=fontdict)
-
-                if txt.get_window_extent().x0 == 0:
-                    pass
-            else:
-                pass
-
 
             #remove value if data = 0 and start =
-            if data[i] == 0 and rect.get_window_extent().x0 != ax.get_window_extent().x0:
-                txt.set_visible(False)
+            if data[i] != 0 and rect.get_window_extent().x0 == ax.get_window_extent().x0:
 
-            #strokes?
+                label_txt = data[i]
 
-            stroke = int(fig.get_window_extent().x1*0.0015)
+                #format data
+                if self._chart_options["x_tick_format"] != None:
+                    label_txt = self._chart_options["x_tick_format"].format(label_txt)
 
-            #label text
-            _ = txt.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')])
+                ext = ax.get_window_extent()
 
-            # x label
-            #xlab = ax.set_xlabel(ax.get_xlabel(), color="white")
-            #xlab.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')])
+                extra_perc = 0.005
 
-            # y label
-            #ylab = ax.set_ylabel(ax.get_ylabel(), color="white")
-            #ylab.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')])
+                extra = ax.get_xlim()[1]* extra_perc
 
-            #title
-            #ylab = ax.set_title(ax.get_title(), color="white")
-            #ylab.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')])
+                # locations for base
+                yloc_middle_bar = rect.get_y() + rect.get_height() / 2
+                xloc_begg_bar = rect.get_bbox().x0 + extra
+                xloc_end_bar = rect.get_bbox().x1 + extra
+                xloc_inside_bar = rect.get_bbox().x1 - extra
 
-            #x ticks
-            #_ = [x.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')]) for x in
-            #     ax.get_xticklabels()]
-            #_ = [x.set_color("white") for x in ax.get_xticklabels()]
+                if self._chart_options["use_data_labels"] == "base":
+                    txt = ax.text(xloc_begg_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
+                                  fontdict=fontdict)
 
-            #y ticks
-            #_ = [x.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')]) for x in
-            #     ax.get_yticklabels()]
-            #_ = [x.set_color("white") for x in ax.get_yticklabels()]
+                elif self._chart_options["use_data_labels"] == "end":
+
+                    txt = ax.text(xloc_end_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
+                                  fontdict=fontdict)
+
+                    if txt.get_window_extent().x1 > ax.get_window_extent().x1:
+                        txt.set_visible(False)
+                        txt = ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
+                                      horizontalalignment="right", fontdict=fontdict)
+
+                    if txt.get_window_extent().x0 == 0:
+                        pass
+                else:
+                    pass
+
+
+
+                #strokes?
+
+                stroke = int(fig.get_window_extent().x1*0.0015)
+                _ = txt.set_path_effects([PathEffects.withStroke(linewidth=stroke*1, foreground='black')])
+
 
 class BarWriter(_base_writer):
 
@@ -801,7 +803,7 @@ class BarWriter(_base_writer):
         # save fig and reread as np array
         return self._get_numpy(fig)
 
-    def write_extra_frames(self, i, out_writer, img, df_date):
+    def write_extra_frames(self, i, img, df_date):
 
         times = self._video_options['frames_per_image']
 
@@ -811,7 +813,7 @@ class BarWriter(_base_writer):
 
             # if first frame write the original data
             if x == 0:
-                out_writer.write(img[:,:,::-1])
+                self._out.write(img[:,:,::-1])
                 try:
                     df_date1 = self._get_date_df(i + 1, df_date[self.category_col])
                     temp_df = df_date.merge(df_date1.set_index(self.category_col)[self.value_col],
@@ -828,7 +830,7 @@ class BarWriter(_base_writer):
                     if self._chart_options["sort"]:
                         temp_df = temp_df.sort_values([self.value_col, self.category_col])
                     img = self.get_chart(temp_df)
-                out_writer.write(img[:,:,::-1])
+                self._out.write(img[:,:,::-1])
 
             # increment loops
             self._video_options['looptimes'] += 1
@@ -838,7 +840,7 @@ class BarWriter(_base_writer):
                             self._video_options['looptimes'],
                             len(self._video_options['unique_dates']) * times)
 
-        return out_writer
+
 
 
 class LineWriter(_base_writer):
@@ -872,7 +874,7 @@ class LineWriter(_base_writer):
             if i == 0:
                 # set writer
                 fourcc = cv2.VideoWriter_fourcc(*'VP90')
-                fourcc = cv2.VideoWriter_fourcc(*'XVID')
+
                 out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                       fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
 

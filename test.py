@@ -45,7 +45,7 @@ from progplot import BarWriter
 
 bw = BarWriter()
 bw.set_data(df, "Province_State", "Date", "Deaths", resample="1d", groupby_agg="sum", resample_agg="mean",output_agg=None)
-bw.set_display_settings(time_in_seconds=45, video_file_name = "deathsbystate.webm")
+bw.set_display_settings(time_in_seconds=45, video_file_name = "deathsbystate.avi", codec="XVID")
 bw.set_chart_options(x_tick_format="{:,.4f}", dateformat="%Y-%d-%m", palette="inferno", title="Top 25 States by Total Deaths", tight_layout=True, use_top_x=30,display_top_x=15,border_size=3,title_font_size=20, x_label_font_size=20, use_data_labels="end")
 bw.test_chart(100)
 
