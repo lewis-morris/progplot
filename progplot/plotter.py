@@ -776,7 +776,7 @@ class BarWriter(_base_writer):
         self._keep_history = False
 
     def get_chart(self, df_date):
-
+        import matplotlib.pyplot as plt
         # get plot
         fig = plt.figure(figsize=self._chart_options["figsize"], dpi=self._chart_options["dpi"])
 
@@ -806,8 +806,15 @@ class BarWriter(_base_writer):
         if self._chart_options["tight_layout"]:
             ax, fig = self._set_tight_layout(ax,fig)
 
+
         # save fig and reread as np array
-        return self._get_numpy(fig)
+        nump = self._get_numpy(fig)
+
+        del ax
+        del fig
+        del plt
+
+        return nump
 
     def write_extra_frames(self, i, img, df_date):
 
