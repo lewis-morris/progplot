@@ -1,7 +1,16 @@
+import imp
+import importlib
+
 import PIL
+import matplotlib
 import numpy as np
 import seaborn as sns
 import cv2
+
+
+import inspect
+
+
 
 def convert(seconds):
     seconds = seconds % (24 * 3600)
@@ -24,16 +33,10 @@ def hasNumbers(inputString):
     return any(char.isdigit() for char in inputString)
 
 
-
-def create_gif():
-    import ffmpy
-    ff = ffmpy.FFmpeg(
-        inputs={"output.webm": None},
-        outputs={"cash.gif": None})
-    ff.run()
-
-
 def get_pallete(as_pil=True):
+
+    #used to draw palette options
+
     palettes = ['viridis', 'plasma', 'inferno', 'magma', 'cividis', 'Greys', 'Purples', 'Blues', 'Greens', 'Oranges',
                 'Reds', 'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn',
                 'binary', 'gist_yarg', 'gist_gray', 'gray', 'bone', 'pink', 'spring', 'summer', 'autumn', 'winter',
@@ -63,6 +66,7 @@ def get_pallete(as_pil=True):
 
 
 def get_np_pallette(pal):
+
     palette = sns.color_palette(pal, n_colors=10)
     for i, x in enumerate(palette):
         base = np.ones([15, 100, 3]).astype(np.uint8)
@@ -77,6 +81,7 @@ def get_np_pallette(pal):
 
 
 def pad_arr(img, width, fill_val):
+
     base = np.zeros([x + (width * 2) if i <= 1 else x for i, x in enumerate(img.shape)])
     base[width:base.shape[0] - width, width:base.shape[1] - width, :] = img
     return base.astype(np.uint8)
@@ -93,33 +98,175 @@ def write_text(text, img):
 def tick_transform(x, pos):
         return '${:,.1f}M'.format(x * 1e-6)
 
-import sys
 
-def print_usage():
-    sizes = {}
-    for name, val in globals().items():
-        sizes[name] = sys.getsizeof(val) * 1e-6
-    print(f"len of vars = {len(sizes)}")
-    print(sorted(sizes.items(), key=lambda item:item[1])[-3:])
+def trim_img(img):
+    mask = img[:, :, 3]
+    non = np.nonzero(mask)
 
-import sys
+    w_min = np.min(non[0])
+    w_max = np.max(non[0])
+    h_min = np.min(non[1])
+    h_max = np.max(non[1])
 
-def get_size(obj, seen=None):
-    """Recursively finds size of objects"""
-    size = sys.getsizeof(obj)
-    if seen is None:
-        seen = set()
-    obj_id = id(obj)
-    if obj_id in seen:
-        return 0
-    # Important mark as seen *before* entering recursion to gracefully handle
-    # self-referential objects
-    seen.add(obj_id)
-    if isinstance(obj, dict):
-        size += sum([get_size(v, seen) for v in obj.values()])
-        size += sum([get_size(k, seen) for k in obj.keys()])
-    elif hasattr(obj, '__dict__'):
-        size += get_size(obj.__dict__, seen)
-    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
-        size += sum([get_size(i, seen) for i in obj])
-    return size
+    return img[w_min:w_max, h_min:h_max, :]
+
+
+def gather_image_and_rough_reshape(image_dict, w, h, items, width, keys):
+    new_img_dict = {}
+
+    if image_dict == None:
+        image_dict = {}
+
+    #add missing keys
+    for unique in keys:
+        if unique not in image_dict.keys():
+            image_dict[unique] = None
+
+    #rough reshape
+
+    try:
+        for k, v in image_dict.items():
+
+            img = cv2.imread(v, cv2.IMREAD_UNCHANGED)
+
+            # defualt to error image if not found
+            if type(img) != np.ndarray:
+                img = cv2.imread("/".join(importlib.util.find_spec("progplot").origin.split("/")[:-1]) + "/error.png", cv2.IMREAD_UNCHANGED)
+
+            img = trim_img(img)
+
+            ratio = img.shape[1] / img.shape[0]
+            roughsize = (h / items) * .8
+
+            img = cv2.resize(img, dsize=(int(roughsize * ratio), int(roughsize)), fx=0, fy=0,
+                                         interpolation=cv2.INTER_AREA)
+            base_img = img.copy()
+
+            while base_img.shape[1] < width:
+                base_img = np.hstack([base_img, img.copy()])
+
+            new_img_dict[k.strip()] = base_img
+    except:
+        return {}
+
+    return new_img_dict
+
+
+def get_actual_size(pt0, pt1, img):
+
+    ratio = img.shape[1] / img.shape[0]
+
+    height = pt0[1] - pt1[1]
+    width = pt1[0] - pt0[0]
+
+    new_img = cv2.resize(img, dsize=(int(height * ratio), int(height)), fx=0, fy=0, interpolation=cv2.INTER_AREA)
+
+    return new_img[:height, :width, :]
+
+
+def remove_rects_get_pos(ax, fig):
+
+    rect_dict = {}
+
+    w, h = fig.canvas.get_width_height()
+
+    for i, (rect, label) in enumerate(zip(ax.patches, ax.get_yticklabels())):
+        rect.set_visible(False)
+        rect_dict[label.get_text().strip()] = [(int(rect.get_window_extent().x0), int(h - rect.get_window_extent().y0)),
+                                       (int(rect.get_window_extent().x1), int(h - rect.get_window_extent().y1))]
+    return ax, fig, rect_dict
+
+
+def get_bar_appended_chart(cht_img, rect_dict, image_dict, add_rect=False, rect_width=3, rect_colour=(124, 124, 124)):
+
+    for k, v in rect_dict.items():
+        # get the image in the shape of the rect from matplotlib- duplicating the image to match width while preserving height
+
+        # check if image in dict
+        try:
+            single_bar_img = image_dict[k]
+        except:
+            #used if key not found - will default to error.png
+            pass
+            single_bar_img = None
+
+        if type(single_bar_img) != np.ndarray:
+            single_bar_img = cv2.imread("/".join(importlib.util.find_spec("progplot").origin.split("/")[:-1]) + "/error.png", cv2.IMREAD_UNCHANGED)
+            single_bar_img = trim_img(single_bar_img)
+
+        bar_img = get_actual_size(v[0], v[1], single_bar_img)
+
+        # if jpg overlay image.
+        if bar_img.shape[2] == 3:
+            try:
+                cht_img[v[1][1]:v[0][1], v[0][0]:v[1][0], :] = bar_img
+            except ValueError as e:
+                print(e)
+                pass
+        # if png
+
+        else:
+            # set alpha
+            h, w, _ = cht_img.shape
+            alpha = np.zeros((h, w))
+            alpha[v[1][1]:v[0][1], v[0][0]:v[1][0]] = bar_img[:, :, 3]
+            alpha = alpha.astype(float) / 255
+            alpha = np.stack((alpha,) * 3, axis=-1)
+
+            # set foreground
+            foreground = np.zeros(cht_img.shape)
+            foreground[v[1][1]:v[0][1], v[0][0]:v[1][0], :] = bar_img[:, :, :3]
+            foreground = foreground.astype(float)
+            foreground = foreground[:, :, ::-1]
+
+            _chart_img = cht_img.astype(float).copy()
+
+            cht_img = (_chart_img * (1 - alpha)) + (foreground * (alpha)).astype(np.uint8)
+
+        if add_rect:
+            cht_img = cv2.rectangle(cht_img.astype(np.uint8), v[0], v[1], rect_colour, rect_width)
+
+    if cht_img.dtype != np.uint8:
+        cht_img = cht_img.astype(np.uint8)
+
+    return cht_img
+
+def convert_bar(plt, ax, fig, images_dict):
+    """
+    Used if you want to convert your own bar chart to an image bar.
+
+    ONLY WORKS ON HORIZONTAL BARS CURRENTLY
+
+    :param plt: matplotlib.plyplot object
+    :param ax: axes object
+    :param fig: figure object
+    :param images_dict: (dict) in format k = Y data :  v = image file name  i.e {"test_category", "test.jpg"}
+    :return:
+    """
+
+    w, h = fig.get_figwidth() * fig.dpi, fig.get_figheight()[1] * fig.dpi
+
+    image_dict = gather_image_and_rough_reshape(images_dict, w, h, ax.get_yticklabels())
+    fig.canvas.draw()
+    rect_dict = {}
+    ax, fig, rect_dict = remove_rects_get_pos(ax, fig)
+    can = SubCan(fig)
+    chart_img = can.get_arr()[:, :, :3]
+    chart_img = get_bar_appended_chart(chart_img, rect_dict, image_dict, True, 2,(30,30,30))
+    plt.close(fig)
+    return PIL.Image.fromarray(chart_img)
+
+
+
+class SubCan(matplotlib.backends.backend_agg.FigureCanvasAgg):
+
+    def __init__(self, fig):
+        super().__init__(fig)
+
+    def get_arr(self, *args,
+                metadata=None, pil_kwargs=None,
+                **kwargs):
+
+        buf, size = self.print_to_buffer()
+
+        return np.frombuffer(buf, np.uint8).reshape((size[1], size[0], 4))

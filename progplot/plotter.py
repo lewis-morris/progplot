@@ -1,4 +1,3 @@
-
 import datetime
 import PIL
 import matplotlib
@@ -7,31 +6,21 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import cv2
+import warnings
 
 try:
     from IPython.display import HTML
 except:
-    print("You may not be able to display outputs")
+    warnings.warn("You may not be able to display outputs if not using jupyter/ipython")
 
 from matplotlib.ticker import StrMethodFormatter
-from progplot.functions import convert, get_bar
+from progplot.functions import convert, get_bar, gather_image_and_rough_reshape, remove_rects_get_pos, \
+    get_bar_appended_chart, SubCan
 import matplotlib.dates as mdates
 from random import shuffle
 import os
 import matplotlib.patheffects as PathEffects
 
-class _subCan(matplotlib.backends.backend_agg.FigureCanvasAgg):
-
-    def __init__(self, fig):
-        super().__init__(fig)
-
-    def get_arr(self, *args,
-                metadata=None, pil_kwargs=None,
-                **kwargs):
-
-        buf, size = self.print_to_buffer()
-
-        return np.frombuffer(buf, np.uint8).reshape((size[1], size[0], 4))
 
 class _base_writer:
 
@@ -94,19 +83,18 @@ class _base_writer:
             value_col) == str and value_col in self.df.columns, "value_col is not str or not in dataframe columns"
         self.value_col = value_col
 
-        assert (type(groupby_agg) == str and groupby_agg in ["count", "mean","sum"]) or groupby_agg == None, \
+        assert (type(groupby_agg) == str and groupby_agg in ["count", "mean", "sum"]) or groupby_agg == None, \
             'groupby_agg is not str or not in ["count","mean","sum"]'
 
         self.groupby_agg = groupby_agg
 
-        assert (type(resample_agg) == str and resample_agg.lower() in ["count", "mean","sum"]) or resample_agg == None,\
+        assert (type(resample_agg) == str and resample_agg.lower() in ["count", "mean", "sum"]) or resample_agg == None, \
             'resample_agg is not str or not in ["count","mean","sum"]'
 
         self.resample_agg = resample_agg
 
         assert (type(output_agg) == str and (output_agg in [
             "cumsum"] or "rolling" in output_agg.lower())) or output_agg == None, 'output_agg is not None or not in ["cumsum"] or like "4rolling"]'
-
 
         self.resample_agg = resample_agg
 
@@ -117,11 +105,9 @@ class _base_writer:
         self.category_values = list(self.df.groupby([self.category_col]).count().reset_index().
                                     sort_values([self.value_col, self.category_col])[self.category_col])
 
-
         # prepare df for redndering
 
         self._video_df_base = self._create_new_frame()
-
 
     def _check_resample_valid(self, resample):
 
@@ -284,7 +270,7 @@ class _base_writer:
                           title=None, title_font_size=None, use_data_labels=None, figsize=(14, 8),
                           dpi=100, border_size=None, border_colour=(0, 0, 0), palette="magma", palette_keep=True,
                           palette_random=True, tight_layout=True, sort=True, seaborn_style="whitegrid",
-                          seaborn_context="paper", font_scale=1.1):
+                          seaborn_context="paper", font_scale=1.1, convert_bar_to_image=False, image_dict=None):
         """
 
 
@@ -349,6 +335,9 @@ class _base_writer:
         :param seaborn_context (str) default "paper  - None, or one of {paper, notebook, talk, poster}
         :param font_scale (float) default 1.1
 
+        :param convert_bar_to_image (bool) if True the bargraph bars will be mapped to images specified in "image_dict"
+        :param image_dict (dict) dictionary of images to be mapped to bars k: categorical value v: file path of image
+               i.e {"test":"./test.jpg"}
 
         :return:
         """
@@ -368,22 +357,27 @@ class _base_writer:
         else:
             self._video_df = self._video_df_base.copy()
 
-        max_len = int(self._video_df[self.category_col].str.len().max()*1.1)
-        self._video_df.loc[:][self.category_col] = self._video_df[self.category_col].apply(lambda x: x.rjust(max_len) if len(x) < max_len else x)
+        max_len = int(self._video_df[self.category_col].str.len().max() * 1.1)
+        self._video_df.loc[:][self.category_col] = self._video_df[self.category_col].apply(
+            lambda x: x.rjust(max_len) if len(x) < max_len else x)
         # unique values for palette colours
+
+        uniques = list(self._video_df[self.category_col].unique())
+
         if palette_keep:
-            uniques = list(self._video_df[self.category_col].unique())
             colours = sns.color_palette(palette, n_colors=len(uniques))
 
             if palette_random:
                 shuffle(uniques)
                 shuffle(colours)
 
-            palette = dict(zip(uniques, colours ))
+            palette = dict(zip(uniques, colours))
 
-        self._chart_options = {"x_label_font_size":x_label_font_size,
+        w, h = figsize[0] * dpi, figsize[1] * dpi
+
+        self._chart_options = {"x_label_font_size": x_label_font_size,
                                "x_label": x_label,
-                               "y_label_font_size":y_label_font_size,
+                               "y_label_font_size": y_label_font_size,
                                "y_label": y_label,
                                "title": title,
                                "figsize": figsize,
@@ -396,30 +390,33 @@ class _base_writer:
                                "display_top_x": display_top_x,
                                "use_top_x": use_top_x,
                                "sort": sort,
-                               "border_size":border_size,
-                               "border_colour":border_colour,
-                               "title_font_size":title_font_size,
-                               "use_data_labels":use_data_labels
+                               "border_size": border_size,
+                               "border_colour": border_colour,
+                               "title_font_size": title_font_size,
+                               "use_data_labels": use_data_labels,
+                               "convert_bar_to_image": convert_bar_to_image,
+                               "image_dict": gather_image_and_rough_reshape(image_dict, w, h,
+                                                                            display_top_x,
+                                                                            figsize[0]*dpi,
+                                                                            [uni.strip() for uni in uniques]) if convert_bar_to_image == True else False
                                }
-
-
 
     def set_chart_axis(self, date_df):
 
         # set labels
 
-        #set x label if needed
+        # set x label if needed
         if self._chart_options['x_label'] == False:
             self._ax.xaxis.label.set_visible(False)
         elif self._chart_options['x_label'] == True:
             pass
         else:
             self._ax.set_ylabel(self._chart_options['x_label'])
-        #set font size
+        # set font size
         if self._chart_options["x_label_font_size"] != None:
             self._ax.set_xlabel(self._ax.get_xlabel(), fontsize=self._chart_options['x_label_font_size'])
 
-        #set y label if needed
+        # set y label if needed
         if self._chart_options['y_label'] == False:
             self._ax.yaxis.label.set_visible(False)
         elif self._chart_options['y_label'] == True:
@@ -427,10 +424,9 @@ class _base_writer:
         else:
             self._ax.set_ylabel(self._chart_options['y_label'])
 
-        #set font size
+        # set font size
         if self._chart_options["y_label_font_size"] != None:
             self._ax.set_ylabel(self._ax.get_ylabel(), fontsize=self._chart_options['y_label_font_size'])
-
 
         # set chart title
         if self._chart_options['dateformat'] == None:
@@ -441,9 +437,9 @@ class _base_writer:
                 f"{self._chart_options['title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col])).strftime(self._chart_options['dateformat'])} To"
                 f" {pd.to_datetime(date_df[self.timeseries_col].iloc[0]).strftime(self._chart_options['dateformat'])}")
 
-        #set fontsize of title
+        # set fontsize of title
         if self._chart_options['title_font_size'] != None:
-            self._ax.set_title(self._ax.get_title(),fontsize=self._chart_options['title_font_size'])
+            self._ax.set_title(self._ax.get_title(), fontsize=self._chart_options['title_font_size'])
 
         # check and set x_tick_format
         fmtX = None
@@ -469,15 +465,13 @@ class _base_writer:
         if fmtY != None:
             self._ax.yaxis.set_major_formatter(fmtY)
 
-
     def add_x_to_formatting_for_matplotlib(self, text):
         text = self._chart_options["x_tick_format"]
         if text.find("x") == -1:
             pos = text.find("{") + 1
             return text[:pos] + "x" + text[pos:]
 
-
-    def set_display_settings(self, fps=30, time_in_seconds=None,  video_file_name="output.webm", codec="VP90"):
+    def set_display_settings(self, fps=30, time_in_seconds=None, video_file_name="output.webm", codec="VP90"):
         """
 
         Used to set the video settings for rendering
@@ -505,7 +499,7 @@ class _base_writer:
         self._video_options = {"unique_dates": unique_dates,
                                "frames_per_image": frames_per_image,
                                "looptimes": 0,
-                               "fourcc":codec,
+                               "fourcc": codec,
                                "video_file_name": video_file_name,
                                "gif_file_name": None,
                                "fps": fps}
@@ -560,14 +554,13 @@ class _base_writer:
                 # set writer
                 fourcc = cv2.VideoWriter_fourcc(*self._video_options["fourcc"])
                 self._out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
-                                      fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
+                                            fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
 
             self.write_extra_frames(i, img, df_date)
 
             if limit_frames != None:
                 if self._video_options['looptimes'] > limit_frames:
                     break
-
 
         # finalize file
         self._out.release()
@@ -607,7 +600,7 @@ class _base_writer:
 
         if self._verbose == 1 and out == 0:
             print("Video file converted to gif.")
-        elif out> 0:
+        elif out > 0:
             print("Error Generating GIF. Have you got ffmpeg installed?")
 
         if show_html:
@@ -641,21 +634,21 @@ class _base_writer:
 
     def _set_tight_layout(self):
 
-            plt.tight_layout()
-            self._ax.get_figure().canvas.draw()
-            chart_x1 = self._ax.get_window_extent().x1
-            ticks = [tick.get_position()[0] for tick in self._ax.get_xticklabels() if tick.get_window_extent().x1 < chart_x1]
-            self._ax.set_xticks(ticks)
-            plt.tight_layout()
-
+        plt.tight_layout()
+        self._ax.get_figure().canvas.draw()
+        chart_x1 = self._ax.get_window_extent().x1
+        ticks = [tick.get_position()[0] for tick in self._ax.get_xticklabels() if
+                 tick.get_window_extent().x1 < chart_x1]
+        self._ax.set_xticks(ticks)
+        plt.tight_layout()
 
     def _get_numpy(self):
 
-        #fig.savefig("temp_out.png")
-        #plt.close(fig)
-        #return cv2.imread("temp_out.png")[:,:,::-1]
+        # fig.savefig("temp_out.png")
+        # plt.close(fig)
+        # return cv2.imread("temp_out.png")[:,:,::-1]
 
-        can = _subCan(self._fig)
+        can = SubCan(self._fig)
         plt.close(self._fig)
         arr = can.get_arr()[:, :, :3]
         return arr
@@ -714,11 +707,9 @@ class _base_writer:
 
         return temp_df
 
-    import matplotlib.patheffects as PathEffects
-
     def _add_text_values(self, data, fontdict={"size": "large", "color": "white"}, formatting=None):
 
-        #if float(label_txt) != 0:
+        # if float(label_txt) != 0:
 
         try:
             self._fig.canvas.draw()
@@ -727,13 +718,12 @@ class _base_writer:
 
         for i, rect in enumerate(self._ax.patches):
 
-
-            #remove value if data = 0 and start =
+            # remove value if data = 0 and start =
             if data[i] != 0 and rect.get_window_extent().x0 == self._ax.get_window_extent().x0:
 
                 label_txt = data[i]
 
-                #format data
+                # format data
                 if self._chart_options["x_tick_format"] != None:
                     label_txt = self._chart_options["x_tick_format"].format(label_txt)
 
@@ -741,7 +731,7 @@ class _base_writer:
 
                 extra_perc = 0.005
 
-                extra = self._ax.get_xlim()[1]* extra_perc
+                extra = self._ax.get_xlim()[1] * extra_perc
 
                 # locations for base
                 yloc_middle_bar = rect.get_y() + rect.get_height() / 2
@@ -750,31 +740,35 @@ class _base_writer:
                 xloc_inside_bar = rect.get_bbox().x1 - extra
 
                 if self._chart_options["use_data_labels"] == "base":
-                    txt = self._ax.text(xloc_begg_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
-                                  fontdict=fontdict)
+                    txt = self._ax.text(xloc_begg_bar, yloc_middle_bar, label_txt, verticalalignment='center',
+                                        horizontalalignment="left",
+                                        fontdict=fontdict)
 
                 elif self._chart_options["use_data_labels"] == "end":
 
-                    txt = self._ax.text(xloc_end_bar, yloc_middle_bar, label_txt, verticalalignment='center', horizontalalignment="left",
-                                  fontdict=fontdict)
+                    txt = self._ax.text(xloc_end_bar, yloc_middle_bar, label_txt, verticalalignment='center',
+                                        horizontalalignment="left",
+                                        fontdict=fontdict)
+                    inc = 0.025
 
-                    if txt.get_window_extent().x1 > self._ax.get_window_extent().x1:
-                        txt.set_visible(False)
-                        txt = self._ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
-                                      horizontalalignment="right", fontdict=fontdict)
+                    while txt.get_window_extent().x1 > self._ax.get_window_extent().x1:
+                        #txt.set_visible(False)
+
+                        self._ax.set_xlim((self._ax.get_xlim()[0], int(self._ax.get_xlim()[1] * (1 + inc))))
+                        inc += 0.025
+                        #txt = self._ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
+                        #                    horizontalalignment="right", fontdict=fontdict)
 
                     if txt.get_window_extent().x0 == 0:
                         pass
                 else:
                     pass
 
+                # strokes?
 
-
-                #strokes?
-
-                stroke = int(self._fig.get_window_extent().x1*0.0015)
-                txt.set_path_effects([PathEffects.withStroke(linewidth=stroke*1,
-                                                                 foreground=self._chart_options["border_colour"])])
+                stroke = int(self._fig.get_window_extent().x1 * 0.0015)
+                txt.set_path_effects([PathEffects.withStroke(linewidth=stroke * 1,
+                                                             foreground=self._chart_options["border_colour"])])
 
 
 class BarWriter(_base_writer):
@@ -791,34 +785,47 @@ class BarWriter(_base_writer):
         self._fig = plt.figure(figsize=self._chart_options["figsize"], dpi=self._chart_options["dpi"])
 
         if self._chart_options["border_size"] == None:
+            border = False
             self._ax = sns.barplot(y=self.category_col,
-                             x=self.value_col,
-                             data=df_date,
-                             palette=self._chart_options['palette'])
+                                   x=self.value_col,
+                                   data=df_date,
+                                   palette=self._chart_options['palette'])
         else:
+            border = True
             self._ax = sns.barplot(y=self.category_col,
-                             x=self.value_col,
-                             data=df_date,
-                             palette=self._chart_options['palette'],
-                             edgecolor=self._chart_options['border_colour'],
-                             linewidth=self._chart_options["border_size"]
-                             )
+                                   x=self.value_col,
+                                   data=df_date,
+                                   palette=self._chart_options['palette'],
+                                   edgecolor=self._chart_options['border_colour'],
+                                   linewidth=self._chart_options["border_size"]
+                                   )
 
-        #set line to 0 if no value
-        [x.set_linewidth(0) for x in self._ax.get_children() if type(x) == matplotlib.patches.Rectangle and x.get_width() == 0]
+        # set line to 0 if no value
+        [x.set_linewidth(0) for x in self._ax.get_children() if
+         type(x) == matplotlib.patches.Rectangle and x.get_width() == 0]
 
         self.set_chart_axis(df_date)
 
+        # add text values to bars if needed
         if self._chart_options["use_data_labels"] != None:
             lst = list(df_date[self.value_col])
             self._add_text_values(lst)
 
+        # tight layout 100% recommended
         if self._chart_options["tight_layout"]:
             self._set_tight_layout()
 
+        # convert bars to images
+        if self._chart_options["convert_bar_to_image"]:
+            self._ax, self._fig, rect_dict = remove_rects_get_pos(self._ax, self._fig)
 
         # save fig and reread as np array
         nump = self._get_numpy()
+
+        if self._chart_options["convert_bar_to_image"]:
+            nump = get_bar_appended_chart(nump, rect_dict, self._chart_options["image_dict"], border,
+                                               self._chart_options["border_size"],
+                                               self._chart_options['border_colour'])
 
         plt.ion()
         return nump
@@ -833,7 +840,7 @@ class BarWriter(_base_writer):
 
             # if first frame write the original data
             if x == 0:
-                self._out.write(img[:,:,::-1])
+                self._out.write(img[:, :, ::-1])
                 try:
                     df_date1 = self._get_date_df(i + 1, df_date[self.category_col])
                     temp_df = df_date.merge(df_date1.set_index(self.category_col)[self.value_col],
@@ -850,7 +857,7 @@ class BarWriter(_base_writer):
                     if self._chart_options["sort"]:
                         temp_df = temp_df.sort_values([self.value_col, self.category_col])
                     img = self.get_chart(temp_df)
-                self._out.write(img[:,:,::-1])
+                self._out.write(img[:, :, ::-1])
 
             # increment loops
             self._video_options['looptimes'] += 1
@@ -859,8 +866,6 @@ class BarWriter(_base_writer):
             self._write_log(self._video_options['starttime'],
                             self._video_options['looptimes'],
                             len(self._video_options['unique_dates']) * times)
-
-
 
 
 class LineWriter(_base_writer):
@@ -900,11 +905,10 @@ class LineWriter(_base_writer):
 
             out = self.write_extra_frames(i, out, img, self._video_df)
 
-            #check if early stopping
+            # check if early stopping
             if limit_frames != None:
                 if self._video_options['looptimes'] > limit_frames:
                     break
-
 
         # finalize file
         out.release()
@@ -935,7 +939,6 @@ class LineWriter(_base_writer):
 
         if self._chart_options["tight_layout"]:
             self._set_tight_layout()
-
 
     def test_chart(self, frame_no=None, as_pil=True):
         """
