@@ -44,6 +44,7 @@ df["Date"] = pd.to_datetime(df["Date"])
 from progplot import BarWriter
 
 bw = BarWriter()
+
 bw.set_data(df, "Province_State", "Date", "Deaths", resample="1d", groupby_agg="sum", resample_agg="mean",output_agg=None)
 bw.set_display_settings(time_in_seconds=45, video_file_name = "deathsbystate.avi", codec="XVID")
 bw.set_chart_options(x_tick_format="{:,.0f}", dateformat="%Y-%d-%m",
@@ -53,6 +54,7 @@ bw.set_chart_options(x_tick_format="{:,.0f}", dateformat="%Y-%d-%m",
                      border_size=2, border_colour=(0.12,0.12,0.12),
                      font_scale=1.6, title_font_size=18,x_label_font_size=16,
                      use_data_labels="end",convert_bar_to_image=True,image_dict={"Ohio":"./icons/test0.png"})
+
 bw.test_chart()
 bw.test_chart()
 bw.test_chart()
