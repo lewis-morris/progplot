@@ -495,7 +495,7 @@ class _base_writer:
 
         df_date = self._get_date_df(frame_no)
 
-        img = self.get_chart(df_date)
+        img = self._get_chart(df_date)
 
         if as_pil:
             return PIL.Image.fromarray(img)
@@ -523,7 +523,7 @@ class _base_writer:
 
             df_date = self._get_date_df(i)
 
-            img = self.get_chart(df_date)
+            img = self._get_chart(df_date)
 
             if i == 0:
                 # set writer
@@ -531,7 +531,7 @@ class _base_writer:
                 self._out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                             fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
 
-            self.write_extra_frames(i, img, df_date)
+            self._write_extra_frames(i, img, df_date)
 
             if limit_frames != None:
                 if self._video_options['looptimes'] > limit_frames:
@@ -955,7 +955,7 @@ class LineWriter(_base_writer):
 
         # squeeze if TEST mode
 
-        self.get_chart(self._video_df)
+        self._get_chart(self._video_df)
 
         for i, dte in enumerate(self._video_options["unique_dates"]):
 
@@ -968,7 +968,7 @@ class LineWriter(_base_writer):
                 out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                       fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
 
-            out = self.write_extra_frames(i, out, img, self._video_df)
+            out = self._write_extra_frames(i, out, img, self._video_df)
 
             # check if early stopping
             if limit_frames != None:
@@ -1017,7 +1017,7 @@ class LineWriter(_base_writer):
         if frame_no == None:
             frame_no = np.random.randint(0, len(self._video_options["unique_dates"]) - 1)
 
-        self.get_chart(self._video_df)
+        self._get_chart(self._video_df)
         dates = self._video_df[self.timeseries_col].unique()
 
         img = self.set_lim_and_save(dates[frame_no])
@@ -1047,7 +1047,7 @@ class LineWriter(_base_writer):
         # save fig and reread as np array
         return self._get_numpy()
 
-    def write_extra_frames(self, i, out_writer, img, df_date):
+    def _write_extra_frames(self, i, out_writer, img, df_date):
 
         times = self._video_options['frames_per_image']
 
