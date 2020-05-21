@@ -430,7 +430,8 @@ class _base_writer:
 
         # set chart title
         if self._chart_options['dateformat'] == None:
-            self._ax.set_title(
+
+           self._ax.set_title(
                 f"{self._chart_options['title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col]))} To {pd.to_datetime(date_df[self.timeseries_col].iloc[0])}")
         else:
             self._ax.set_title(
@@ -749,13 +750,13 @@ class _base_writer:
                     txt = self._ax.text(xloc_end_bar, yloc_middle_bar, label_txt, verticalalignment='center',
                                         horizontalalignment="left",
                                         fontdict=fontdict)
-                    inc = 0.025
+                    inc = 0.005
 
                     while txt.get_window_extent().x1 > self._ax.get_window_extent().x1:
                         #txt.set_visible(False)
 
                         self._ax.set_xlim((self._ax.get_xlim()[0], int(self._ax.get_xlim()[1] * (1 + inc))))
-                        inc += 0.025
+                        inc += 0.005
                         #txt = self._ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
                         #                    horizontalalignment="right", fontdict=fontdict)
 
@@ -789,7 +790,8 @@ class BarWriter(_base_writer):
             self._ax = sns.barplot(y=self.category_col,
                                    x=self.value_col,
                                    data=df_date,
-                                   palette=self._chart_options['palette'])
+                                   palette=self._chart_options['palette'],
+                                   zorder = 1)
         else:
             border = True
             self._ax = sns.barplot(y=self.category_col,
@@ -797,8 +799,18 @@ class BarWriter(_base_writer):
                                    data=df_date,
                                    palette=self._chart_options['palette'],
                                    edgecolor=self._chart_options['border_colour'],
-                                   linewidth=self._chart_options["border_size"]
+                                   linewidth=self._chart_options["border_size"],
+                                   zorder=1
                                    )
+        maxx = df_date[self.value_col].max()
+
+        minn = df_date[self.value_col].min() - (maxx * .025)
+        if minn < 0:
+            minn = 0
+
+        self._ax.set_xlim(minn , int(maxx * 1.05))
+
+        #self._ax.autoscale(enable=True, axis="x", tight=True)
 
         # set line to 0 if no value
         [x.set_linewidth(0) for x in self._ax.get_children() if
