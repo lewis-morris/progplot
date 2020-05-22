@@ -462,6 +462,8 @@ class _base_writer:
         :param fourcccodecname: (str) should not be changed unless video output not working
         :return:
         """
+        assert len(self._video_df_base) > 0, "You have not set the data yet, please do this before continuing"
+
         # save file name
         self._last_video_save = video_file_name
 
