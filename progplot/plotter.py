@@ -459,7 +459,8 @@ class _base_writer:
             self._ax.set_ylabel(self._ax.get_ylabel(), fontsize=self._chart_options['y_label_font_size'])
 
         # set chart title
-        self._ax.set_title(self.sub_title(self._chart_options['title']))
+        if self._chart_options['title'] != None:
+            self._ax.set_title(self._sub_title(self._chart_options['title']))
 
         # set fontsize of title
         if self._chart_options['title_font_size'] != None:
@@ -489,7 +490,7 @@ class _base_writer:
         if fmtY != None:
             self._ax.yaxis.set_major_formatter(fmtY)
 
-    def sub_title(self,text):
+    def _sub_title(self, text):
 
         if self._chart_options['dateformat'] == None:
             text = text.replace("<maxdatetime>",self._dates["max"])
