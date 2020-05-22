@@ -100,9 +100,17 @@ class _base_writer:
 
         self.resample_agg = resample_agg
 
+
+
         self.output_agg = output_agg
 
         self._resample = self._check_resample_valid(resample)
+
+        #for title dates
+        if self.resample_agg.find("rolling") >= 0:
+            self._window_back = str([int(s) for s in str.split() if s.isdigit()]) + self._resample[0]
+        else:
+            self._window_back = None
 
         self.category_values = list(self.df.groupby([self.category_col]).count().reset_index().
                                     sort_values([self.value_col, self.category_col])[self.category_col])
@@ -110,7 +118,8 @@ class _base_writer:
         # prepare df for redndering
 
         self._video_df_base = self._create_new_frame()
-
+        self._dates= {"max":self._video_df_base[self.timeseries_col].max(),
+                     "min":self._video_df_base[self.timeseries_col].min()}
     def _check_resample_valid(self, resample):
 
         if resample == None:
@@ -163,12 +172,11 @@ class _base_writer:
         self._data_df_temp = self.df[self.df[self.category_col].isin(self.category_values)][
             [self.category_col, self.timeseries_col, self.value_col]]
 
-        self._max_date = pd.to_datetime(self.df[self.timeseries_col].max())
-        self._min_date = pd.to_datetime(self.df[self.timeseries_col].min())
-        self._date_diff = self._data_df_temp[self.timeseries_col].drop_duplicates().diff().median()
+        max_date = pd.to_datetime(self.df[self.timeseries_col].max())
+        min_date = pd.to_datetime(self.df[self.timeseries_col].min())
 
         # get dates
-        dt_index = pd.DatetimeIndex(pd.date_range(self._min_date, self._max_date, freq=self._resample))
+        dt_index = pd.DatetimeIndex(pd.date_range(min_date, max_date, freq=self._resample))
 
         # final_df = pd.DataFrame()
 
@@ -267,60 +275,101 @@ class _base_writer:
     def _assert_sort(self, sort):
         assert sort == True, "Cant display_top_x or use top_x while sort == False"
 
-    def set_chart_options(self, use_top_x=None, display_top_x=None, x_tick_format=None, y_tick_format=None,
-                          dateformat=None, y_label=True, y_label_font_size=None, x_label=True, x_label_font_size=None,
-                          title=None, title_font_size=None, use_data_labels=None, figsize=(14, 8),
-                          dpi=100, border_size=None, border_colour=(0, 0, 0), palette="magma", palette_keep=True,
+    def set_chart_options(self, use_top_x=None, display_top_x=None, title=None, title_font_size=None, dateformat=None,
+                          use_data_labels="end", x_tick_format=None, y_tick_format=None, y_label=True,
+                          y_label_font_size=None, x_label=True, x_label_font_size=None, figsize=(14, 8), dpi=100,
+                          border_size=None, border_colour=(0, 0, 0), palette="magma", palette_keep=True,
                           palette_random=True, tight_layout=True, sort=True, seaborn_style="whitegrid",
-                          seaborn_context="paper", font_scale=1.1, convert_bar_to_image=False, image_dict=None):
+                          seaborn_context="paper", font_scale=1.3, convert_bar_to_image=False, image_dict=None):
         """
         Used to set chart options - to be called before video creation to test the output of the chart.
-        Two important values are use_top_x and display_top_x:
-        use_top_x trims the dataframe down to the top x values.
-        display_top_x shows only x categories on the chart.
-        You could then therefor keep 20 categories, only showing 10. The effect? The lowest values contend for there
-        position and some may disappear off the end of the chart and be replaced with new values IF their value is higher.
+
+        Important values are:
+
+            > use_top_x trims the dataframe down to the top x values.
+            > display_top_x shows only x categories on the chart.
+            > Chart title with substitued dates
+            > All formatting variables
+
+        Read these carefully for effective chart generation.
+
         :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data.
-               (the amount of data is sometimes to much to make visually appealing charts so trimming the data down
-               is beneficial)
+        (the amount of data is sometimes to much to make visually appealing charts so trimming the data down is
+         beneficial)
+
         :param display_top_x: (int) Amount of categories to display on chart. Differs from use_top_x - you can set
-               use_top_x to 20 and display_top_x to 10. Then some categories *MIGHT* fall off the bottom of the
-               chart and be replaced with a previously unseen value that was not "Displayed" before but was present
-               in the data.
-        :param x_tick_format: (str) string formatting i.e "£{:.2f}" £2.25 or "%Y-%d" date time like formatting
-                              None = no formatting
-        :param y_tick_format: (str) string formatting i.e "£{:.2f}" £2.25 or "%Y-%d" date time like formatting
-                              None = no formatting
-        :param dateformat: (str) formatting for title datetime display. in strftime format.
-        :param figsize: (tuple) matplotlib figsize
-        :param dpi: (int) matplotlib dpi value
-        :param border_size: (int/None) None = no border Int = size of border around each bar
-        :param border_colour: (tuple) (r,g,b) colour or bar - not applicable if border_size == None
-        :param y_label: (str/ bool) Label for y Axis or Bool True = column name from DataFrame False = None
-        :param y_label_font_size: (int) font size for y_label (None = style default)
-        :param x_label: (str/ bool)  Label for x Axis or Bool True = column name from DataFrame False = None
-        :param x_label_font_size: (int) font size for x_label (None = style default)
-        :param title: (str) Label for title that will prefix the default title "from MAXDATETIME to CURRENTDATETIME"
+        use_top_x to 20 and display_top_x to 10. Then some categories *MIGHT* fall off the bottom of the chart and be
+         replaced with a previously unseen value that was not "Displayed" before but was present in the data.
+
+        :param title: (str) "The title is everything is determining where the time series is currently while the video is
+         running - you can therefor add a title as a string along with the following that will be substituted (the dates
+         can be auto formatted with the "dateformat" param)
+
+         <maxdatetime> - the max datetime from the dataframe
+         <mindatetime> - the min datetime from the dataframe
+         <currentdatetime> - the current datetime position in the dataframe
+         <rollingwindowfromdatetime> - the first date in the rolling window (if used)
+
+         i.e "Average Daily Temperature <currentdatetime>" or "Total Daily Deaths From <mindatetime> to <maxdatetime>"
+
         :param title_font_size: (int) font size for title (None = style default)
+
+        :param dateformat: (str) formatting for title datetime display. in strftime format.
+
+        :param x_tick_format: (str) string formatting i.e "£{:.2f}" £2.25 or "%Y-%d" date time like formatting
+        None = no formatting
+
+        :param y_tick_format: (str) string formatting i.e "£{:.2f}" £2.25 or "%Y-%d" date time like formatting
+        None = no formatting
+
+        :param figsize: (tuple) matplotlib figsize
+
+        :param dpi: (int) matplotlib dpi value
+
+        :param border_size: (int/None) None = no border Int = size of border around each bar
+
+        :param border_colour: (tuple) (r,g,b) colour or bar - not applicable if border_size == None
+
+        :param y_label: (str/ bool) Label for y Axis or Bool True = column name from DataFrame False = None
+
+        :param y_label_font_size: (int) font size for y_label (None = style default)
+
+        :param x_label: (str/ bool)  Label for x Axis or Bool True = column name from DataFrame False = None
+
+        :param x_label_font_size: (int) font size for x_label (None = style default)
+
+
         :param use_data_labels: (str/ None) No datalabels if None - "base" datalabels at base of bar "end" for at end
+
         :param palette: (str) matplotlib style palette name
+
         :param palette_keep: (bool) If True chart colours are pinned to categories False colours are pinned to positions
                on the chart.
+
         :param palette_random: (bool) When the palette colours are created by default they are randomised and assigned
                to each categorical value. This is because depending on the palette type and amount of data is can
                sometimes be hard to determine the movement category (moving up and down the chart) when sort == True.
                Randomising colours can help visualise the movement somewhat.
+
         :param tight_layout: (bool) use tight layout on plot to make sure all text fits. Sometimes causes chart to
                move when animated.
+
         :param sort: (bool) True data is sorted and chart positions change. I.e the highest values are reordered to
                the bottom of the chart.
+
         :param seaborn_style (str) default "whitegrid" - options darkgrid, whitegrid, dark, white, ticks
+
         :param seaborn_context (str) default "paper  - None, or one of {paper, notebook, talk, poster}
+
         :param font_scale (float) default 1.1
+
         :param convert_bar_to_image (bool) if True the bargraph bars will be mapped to images specified in "image_dict"
+
         :param image_dict (dict) dictionary of images to be mapped to bars k: categorical value v: file path of image
                i.e {"test":"./test.jpg"}
+
         :return:
+
         """
 
         sns.set_style(seaborn_style)
@@ -410,14 +459,7 @@ class _base_writer:
             self._ax.set_ylabel(self._ax.get_ylabel(), fontsize=self._chart_options['y_label_font_size'])
 
         # set chart title
-        if self._chart_options['dateformat'] == None:
-
-           self._ax.set_title(
-                f"{self._chart_options['title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col]))} To {pd.to_datetime(date_df[self.timeseries_col].iloc[0])}")
-        else:
-            self._ax.set_title(
-                f"{self._chart_options['title']} From {pd.to_datetime(min(self._video_df[self.timeseries_col])).strftime(self._chart_options['dateformat'])} To"
-                f" {pd.to_datetime(date_df[self.timeseries_col].iloc[0]).strftime(self._chart_options['dateformat'])}")
+        self._ax.set_title(self.sub_title(self._chart_options['title']))
 
         # set fontsize of title
         if self._chart_options['title_font_size'] != None:
@@ -446,6 +488,25 @@ class _base_writer:
 
         if fmtY != None:
             self._ax.yaxis.set_major_formatter(fmtY)
+
+    def sub_title(self,text):
+
+        if self._chart_options['dateformat'] == None:
+            text = text.replace("<maxdatetime>",self._dates["max"])
+            text = text.replace("<mindatetime>", self._dates["min"])
+            text = text.replace("<currentdatetime>", self._dates["current"])
+            if "rolling" in self._dates.keys():
+                text = text.replace("<rollingdatetime>", self._dates["rolling"])
+            return text
+        else:
+            format = self._chart_options['dateformat']
+            text = text.replace("<maxdatetime>",self._dates["max"].strftime(format))
+            text = text.replace("<mindatetime>", self._dates["min"].strftime(format))
+            text = text.replace("<currentdatetime>", self._dates["current"].strftime(format))
+            if "rolling" in self._dates.keys():
+                text = text.replace("<rollingdatetime>", self._dates["rolling"].strftime(format))
+            return text
+
 
     def _add_x_to_formatting_for_matplotlib(self, text):
         text = self._chart_options["x_tick_format"]
@@ -790,6 +851,10 @@ class BarWriter(_base_writer):
 
         plt.ioff()
 
+        self._dates["current"] = df_date[self.timeseries_col].max()
+        if self._window_back != None:
+            self._dates["window"] = df_date[self.timeseries_col].max() - pd.to_timedelta(self._window_back)
+
         # get plot
         self._fig = plt.figure(figsize=self._chart_options["figsize"], dpi=self._chart_options["dpi"])
 
@@ -830,6 +895,7 @@ class BarWriter(_base_writer):
         # set line to 0 if no value
         [x.set_linewidth(0) for x in self._ax.get_children() if
          type(x) == matplotlib.patches.Rectangle and x.get_width() == 0]
+
 
         self._set_chart_axis(df_date)
 
