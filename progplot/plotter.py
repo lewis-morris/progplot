@@ -541,6 +541,7 @@ class _base_writer:
 
             if limit_frames != None:
                 if self._video_options['looptimes'] > limit_frames:
+                    print("HERE")
                     break
 
         # finalize file
