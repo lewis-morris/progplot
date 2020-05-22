@@ -25,7 +25,7 @@ import matplotlib.dates as mdates
 from random import shuffle
 import os
 import matplotlib.patheffects as PathEffects
-from IPython.display import Video
+
 
 class _base_writer:
 
@@ -453,13 +453,13 @@ class _base_writer:
             pos = text.find("{") + 1
             return text[:pos] + "x" + text[pos:]
 
-    def set_display_settings(self, fps=30, time_in_seconds=None, video_file_name="output.mp4"):
+    def set_display_settings(self, fps=30, time_in_seconds=None, video_file_name="output.mp4", fourcccodecname="mp4v"):
         """
         Used to set the video settings for rendering
         :param fps: (int) expected fps of video
         :param time_in_seconds: (int) rough expected running time of video in seconds if NONE then each datetime is displayed for 1 frame. This sometimes creates very FAST videos if there is limitied data.
         :param video_file_name: (str) desired output file - must be "xxx.mp4"
-
+        :param fourcccodecname: (str) should not be changed unless video output not working
         :return:
         """
         # save file name
@@ -474,14 +474,14 @@ class _base_writer:
             frames_per_image = int(total_frames / len(unique_dates))
         else:
             frames_per_image = 1
-
         # set options for
         self._video_options = {"unique_dates": unique_dates,
                                "frames_per_image": frames_per_image,
                                "looptimes": 0,
                                "video_file_name": video_file_name,
                                "gif_file_name": None,
-                               "fps": fps}
+                               "fps": fps,
+                               "fourcc":fourcccodecname}
 
     def test_chart(self, frame_no=None, as_pil=True):
         """
@@ -530,7 +530,7 @@ class _base_writer:
 
             if i == 0:
                 # set writer
-                fourcc = cv2.VideoWriter_fourcc(*"MP4V")
+                fourcc = cv2.VideoWriter_fourcc(*self._video_options ["fourcccodecname"])
 
                 self._out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                             fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
@@ -598,11 +598,18 @@ class _base_writer:
     def show_video(self):
         """
         Shows video in Jupyter
-        :return:
+        :return: HTML
         """
         assert type(self._last_video_save) == str, "Video not rendered"
 
-        return Video(self._video_options["video_file_name"], embed=True)
+        try:
+            return HTML(f"""<video controls>
+                      <source src={self._video_options["video_file_name"]} type="video/mp4">
+                      </video>
+                    """)
+        except:
+            return Video(self._video_options["video_file_name"], embed=True)
+
 
     def show_gif(self):
         """
