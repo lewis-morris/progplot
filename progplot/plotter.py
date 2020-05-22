@@ -939,6 +939,9 @@ class BarWriter(_base_writer):
 
         times = self._video_options['frames_per_image']
 
+        if times <= 0:
+            times = 1
+
         last = False
 
         for x in range(times):
@@ -973,6 +976,8 @@ class BarWriter(_base_writer):
                             self._video_options['looptimes'],
                             len(self._video_options['unique_dates']) * times)
 
+    def get_unique_dates(self):
+        return self._video_options['unique_dates']
 
 class LineWriter(_base_writer):
 
