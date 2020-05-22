@@ -1,4 +1,6 @@
 import datetime
+import subprocess
+
 import PIL
 import matplotlib
 import numpy as np
@@ -12,6 +14,7 @@ from PIL import ImageFont
 from PIL import ImageDraw
 try:
     from IPython.display import HTML
+    from IPython.display import Video
 except:
     warnings.warn("You may not be able to display outputs if not using jupyter/ipython")
 
@@ -22,7 +25,7 @@ import matplotlib.dates as mdates
 from random import shuffle
 import os
 import matplotlib.patheffects as PathEffects
-
+from IPython.display import Video
 
 class _base_writer:
 
@@ -335,7 +338,7 @@ class _base_writer:
         else:
             self._video_df = self._video_df_base.copy()
 
-        max_len = int(self._video_df[self.category_col].str.len().max() * 1.1)
+        max_len = int(self._video_df[self.category_col].str.len().max() * 1.15)
         self._video_df.loc[:][self.category_col] = self._video_df[self.category_col].apply(
             lambda x: x.rjust(max_len) if len(x) < max_len else x)
         # unique values for palette colours
@@ -450,13 +453,13 @@ class _base_writer:
             pos = text.find("{") + 1
             return text[:pos] + "x" + text[pos:]
 
-    def set_display_settings(self, fps=30, time_in_seconds=None, video_file_name="output.webm", codec="VP90"):
+    def set_display_settings(self, fps=30, time_in_seconds=None, video_file_name="output.mp4"):
         """
         Used to set the video settings for rendering
         :param fps: (int) expected fps of video
         :param time_in_seconds: (int) rough expected running time of video in seconds if NONE then each datetime is displayed for 1 frame. This sometimes creates very FAST videos if there is limitied data.
-        :param video_file_name: (str) desired output file - must be "xxx.webm"
-        :param codec: (str) from list "VP80", "VP90", "XVID", "MP4V".  DEFAULT is VP90 and is open source web format for videos. VP80/90 must have ".webm" for file extension / XVID ".avi" MP4V ".mp4"
+        :param video_file_name: (str) desired output file - must be "xxx.mp4"
+
         :return:
         """
         # save file name
@@ -476,7 +479,6 @@ class _base_writer:
         self._video_options = {"unique_dates": unique_dates,
                                "frames_per_image": frames_per_image,
                                "looptimes": 0,
-                               "fourcc": codec,
                                "video_file_name": video_file_name,
                                "gif_file_name": None,
                                "fps": fps}
@@ -489,6 +491,7 @@ class _base_writer:
         :return:
         """
         assert self._chart_options != {}, "Please set chart options first"
+        assert "unique_dates" in self._video_options.keys(), "Please set video options first"
 
         if frame_no == None:
             frame_no = np.random.randint(0, len(self._video_options["unique_dates"]) - 1)
@@ -527,7 +530,8 @@ class _base_writer:
 
             if i == 0:
                 # set writer
-                fourcc = cv2.VideoWriter_fourcc(*self._video_options["fourcc"])
+                fourcc = cv2.VideoWriter_fourcc(*"MP4V")
+
                 self._out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                             fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
 
@@ -543,11 +547,22 @@ class _base_writer:
         del self._out
 
         if self._verbose == 1:
-            print("\nVideo creation complete")
+            print("\nBase video created ... converting to desired output type")
+
+        self._convert_to_type()
 
         # return HTML output
         if output_html:
-            self.show_video()
+            return self.show_video()
+
+    def _convert_to_type(self):
+
+        co = subprocess.run(f"ffmpeg -y -i {self._video_options['video_file_name']} -an -vcodec libx264 outfile.mp4",shell=True)
+        os.remove(self._video_options['video_file_name'])
+        os.rename("outfile.mp4",self._video_options['video_file_name'])
+
+
+
 
     def create_gif(self, show_html=True):
         """
@@ -587,11 +602,7 @@ class _base_writer:
         """
         assert type(self._last_video_save) == str, "Video not rendered"
 
-        return HTML(f"""
-                    <video alt="test" controls>
-                        <source src="{self._last_video_save}" type="video/mp4">
-                    </video>
-                """)
+        return Video(self._video_options["video_file_name"], embed=True)
 
     def show_gif(self):
         """
@@ -609,12 +620,22 @@ class _base_writer:
     def _set_tight_layout(self):
 
         plt.tight_layout()
-        self._ax.get_figure().canvas.draw()
+        #self._ax.get_figure().canvas.draw()
         chart_x1 = self._ax.get_window_extent().x1
-        ticks = [tick.get_position()[0] for tick in self._ax.get_xticklabels() if
-                 tick.get_window_extent().x1 < chart_x1]
+        ticks = []
+        tight = False
+        for tick in self._ax.get_xticklabels():
+                if tick.get_window_extent().x1 < chart_x1:
+                    ticks.append(tick.get_position()[0])
+                else:
+                    tight = True
+
+        #ticks = [tick.get_position()[0] for tick in self._ax.get_xticklabels() if
+        #         tick.get_window_extent().x1 < chart_x1]
+
         self._ax.set_xticks(ticks)
-        plt.tight_layout()
+        if tight:
+            plt.tight_layout()
 
     def _get_numpy(self,trans = False):
 
@@ -690,11 +711,6 @@ class _base_writer:
 
         # if float(label_txt) != 0:
         fonts = {}
-
-        try:
-            self._fig.canvas.draw()
-        except:
-            raise ValueError("Issue with formatting needs to be in the format {:.2f} etc or None")
 
         if self._chart_options["convert_bar_to_image"]:
             fontdict["color"] = (.965,.965,.965)
@@ -784,6 +800,11 @@ class BarWriter(_base_writer):
                                    linewidth=self._chart_options["border_size"],
                                    zorder=1
                                    )
+
+        try:
+            self._fig.canvas.draw()
+        except:
+            raise ValueError("Issue with formatting needs to be in the format {:.2f} etc or None")
 
         ##squeeze values
         #minn = np.min(df_date[self.value_col]) * .9
@@ -897,6 +918,13 @@ class BarWriter(_base_writer):
 
         return np.array(pil_img)
 
+    def _write_to_outwriter(self,img):
+        if img.shape[2] == 3:
+            self._out.write(img[:,:,::-1])
+        else:
+            img = img[:, :, :3]
+            self._out.write(img[:,:,::-1])
+
     def _write_extra_frames(self, i, img, df_date):
 
         times = self._video_options['frames_per_image']
@@ -907,7 +935,7 @@ class BarWriter(_base_writer):
 
             # if first frame write the original data
             if x == 0:
-                self._out.write(img[:, :, ::-1])
+                self._write_to_outwriter(img)
                 try:
                     df_date1 = self._get_date_df(i + 1, df_date[self.category_col])
                     temp_df = df_date.merge(df_date1.set_index(self.category_col)[self.value_col],
@@ -924,7 +952,8 @@ class BarWriter(_base_writer):
                     if self._chart_options["sort"]:
                         temp_df = temp_df.sort_values([self.value_col, self.category_col])
                     img = self._get_chart(temp_df)
-                self._out.write(img[:, :, ::-1])
+
+                self._write_to_outwriter(img)
 
             # increment loops
             self._video_options['looptimes'] += 1
@@ -963,7 +992,7 @@ class LineWriter(_base_writer):
 
             if i == 0:
                 # set writer
-                fourcc = cv2.VideoWriter_fourcc(*'VP90')
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
 
                 out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                       fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
