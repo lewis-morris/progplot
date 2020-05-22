@@ -530,7 +530,7 @@ class _base_writer:
 
             if i == 0:
                 # set writer
-                fourcc = cv2.VideoWriter_fourcc(*self._video_options ["fourcc"])
+                fourcc = cv2.VideoWriter_fourcc(*self._video_options["fourcc"])
 
                 self._out = cv2.VideoWriter("./" + self._video_options["video_file_name"], fourcc=fourcc,
                                             fps=self._video_options["fps"], frameSize=(img.shape[1], img.shape[0]))
