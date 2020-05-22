@@ -107,7 +107,7 @@ class _base_writer:
         self._resample = self._check_resample_valid(resample)
 
         #for title dates
-        if self.resample_agg.find("rolling") >= 0:
+        if self.output_agg.find("rolling") >= 0:
             self._window_back = str([int(s) for s in str.split() if s.isdigit()]) + self._resample[0]
         else:
             self._window_back = None
