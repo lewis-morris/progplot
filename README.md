@@ -1,4 +1,4 @@
-#progplot
+# progplot
 
 ## Timeseries animation
 
@@ -32,7 +32,7 @@ To test if you already have ffmpeg installed:
 > Outputs can be both video or gif but for github demostration I've only listed GIF's as they will play on the page. 
 
 Animated 
-![alt text](./examdples/deathsbycountrywithflag.gif "Animated GIF by countrty ")
+![GIF by country](./examples/deathsbycountrywithflag.gif "Animated GIF by countrty ")
 
 
 
