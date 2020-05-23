@@ -107,7 +107,7 @@ class _base_writer:
         self._resample = self._check_resample_valid(resample)
 
         #for title dates
-        if self.output_agg.find("rolling") >= 0:
+        if self.output_agg != None and self.output_agg.find("rolling") >= 0:
             self._window_back = str([int(s) for s in str.split() if s.isdigit()]) + self._resample[0]
         else:
             self._window_back = None
@@ -282,6 +282,8 @@ class _base_writer:
                           palette_random=True, tight_layout=True, sort=True, seaborn_style="whitegrid",
                           seaborn_context="paper", font_scale=1.3, convert_bar_to_image=False, image_dict=None):
         """
+        ----------------------------------------------
+        
         Used to set chart options - to be called before video creation to test the output of the chart.
 
         Important values are:
@@ -292,6 +294,8 @@ class _base_writer:
             > All formatting variables
 
         Read these carefully for effective chart generation.
+
+        ----------------------------------------------
 
         :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data.
         (the amount of data is sometimes to much to make visually appealing charts so trimming the data down is
@@ -517,14 +521,18 @@ class _base_writer:
 
     def set_display_settings(self, fps=30, time_in_seconds=None, video_file_name="output.mp4", fourcccodecname="mp4v"):
         """
+
         Used to set the video settings for rendering
+        --------------------------------------------
+
         :param fps: (int) expected fps of video
         :param time_in_seconds: (int) rough expected running time of video in seconds if NONE then each datetime is displayed for 1 frame. This sometimes creates very FAST videos if there is limitied data.
         :param video_file_name: (str) desired output file - must be "xxx.mp4"
         :param fourcccodecname: (str) should not be changed unless video output not working
         :return:
         """
-        assert len(self._video_df_base) > 0, "You have not set the data yet, please do this before continuing"
+
+        assert type(self._video_df_base) == pd.DataFrame, "You have not set the data yet please do this before continuing"
 
         # save file name
         self._last_video_save = video_file_name

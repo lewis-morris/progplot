@@ -45,7 +45,7 @@ from progplot import BarWriter
 
 bw = BarWriter()
 
-bw.set_data(df, "Province_State", "Date", "Deaths", resample="1w", groupby_agg="sum", resample_agg="mean",output_agg="4rolling")
+bw.set_data(df, "Province_State", "Date", "Deaths", resample="1w", groupby_agg="sum", resample_agg="mean",output_agg=None)
 
 bw.set_display_settings(time_in_seconds=10, video_file_name = "deathsbystate.mp4")
 
