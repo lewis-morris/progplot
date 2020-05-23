@@ -32,14 +32,14 @@ To test if you already have ffmpeg installed:
 > Outputs can be both video or gif but for github demostration I've only listed GIF's as they will play on the page. 
 
 Animated 
-![GIF by country](./exadmples/deathsbycountrywithflag.gif "Animated GIF by countrty ")
+![GIF by country](./examples/deathsbycountrywithflag.gif "Animated GIF by countrty ")
 
-# Worked examples
+# Usage / Worked examples
 
 > For me personally I find its best to be led by example.
 > you can find a whole host of examples on my kaggle.
->
->  
+
+[COVID-19 Timeseries](https://www.kaggle.com/lewisgmorris/easy-time-series-animation)
 
 
 
