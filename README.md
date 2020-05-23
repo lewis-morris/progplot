@@ -27,12 +27,19 @@ To test if you already have ffmpeg installed:
 
 [ffmpeg download site here](https://www.ffmpeg.org/download.html)
 
-## progplot example outputs
+# Example outputs
 
 > Outputs can be both video or gif but for github demostration I've only listed GIF's as they will play on the page. 
 
 Animated 
-![GIF by country](./examples/deathsbycountrywithflag.gif "Animated GIF by countrty ")
+![GIF by country](./exadmples/deathsbycountrywithflag.gif "Animated GIF by countrty ")
+
+# Worked examples
+
+> For me personally I find its best to be led by example.
+> you can find a whole host of examples on my kaggle.
+>
+>  
 
 
 

@@ -135,7 +135,10 @@ def gather_image_and_rough_reshape(image_dict, w, h, items, width, keys):
             # defualt to error image if not found
             if type(img) != np.ndarray:
                 img = cv2.imread("/".join(importlib.util.find_spec("progplot").origin.split("/")[:-1]) + "/error.png", cv2.IMREAD_UNCHANGED)
-
+                if img == None:
+                    img = cv2.imread(
+                        "/".join(importlib.util.find_spec("progplot").origin.split("/")[:-1]) + "/error.png",
+                        cv2.IMREAD_UNCHANGED)
             img = trim_img(img)
 
             ratio = img.shape[1] / img.shape[0]
