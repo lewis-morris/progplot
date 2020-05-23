@@ -37,7 +37,8 @@ Animated
 # Usage / Worked examples
 
 > For me personally I find its best to be led by example.
-> you can find a whole host of examples on my kaggle.
+
+> You can find a whole host of examples on my kaggle.
 
 [COVID-19 Timeseries](https://www.kaggle.com/lewisgmorris/easy-time-series-animation)
 
