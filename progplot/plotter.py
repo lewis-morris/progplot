@@ -381,7 +381,7 @@ class _base_writer:
 
         ##trim_dataframe
         if type(use_top_x) == int:
-            self._assert_sort(sort)
+            #self._assert_sort(sort)
             max_date = self._video_df_base[self.timeseries_col].tail(1).item()
             self.category_values = \
                 self._video_df_base[self._video_df_base[self.timeseries_col] == max_date].sort_values(
@@ -767,6 +767,9 @@ class _base_writer:
     def _get_date_df(self, i, vals=False):
         # get dates df SORTED IF NEEDED
         #self._assert_sort(self._chart_options["sort"])
+
+        if i > len(self._video_options["unique_dates"]):
+            raise ValueError(f"Frame number not available - must be between 0 and {len(self._video_options['unique_dates'])-1}")
 
         if self._chart_options["sort"]:
             temp_df = self._get_temp_df_sort_values(self._video_options["unique_dates"][i], self._keep_history)
