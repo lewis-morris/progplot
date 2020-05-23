@@ -501,7 +501,7 @@ class _base_writer:
             text = text.replace("<mindatetime>", self._dates["min"])
             text = text.replace("<currentdatetime>", self._dates["current"])
             if "window" in self._dates.keys():
-                text = text.replace("<rollingdatetime>", self._dates["rolling"])
+                text = text.replace("<rollingdatetime>", self._dates["window"])
             return text
         else:
             format = self._chart_options['dateformat']
@@ -509,7 +509,7 @@ class _base_writer:
             text = text.replace("<mindatetime>", self._dates["min"].strftime(format))
             text = text.replace("<currentdatetime>", self._dates["current"].strftime(format))
             if "window" in self._dates.keys():
-                text = text.replace("<rollingdatetime>", self._dates["rolling"].strftime(format))
+                text = text.replace("<rollingdatetime>", self._dates["window"].strftime(format))
             return text
 
 
