@@ -41,7 +41,7 @@ from progplot import BarWriter
 #bw.test_chart()
 #bw.write_video()
 
-df = pd.read_csv("usa_county_wise.csv")
+df = pd.read_csv("./examples/usa_county_wise.csv")
 df["Date"] = pd.to_datetime(df["Date"])
 from progplot import BarWriter
 
@@ -58,6 +58,7 @@ bw.set_chart_options(x_tick_format="{:,.0f}", dateformat="%Y-%m",
                      border_size=2, border_colour=(0.12,0.12,0.12),
                      font_scale=1.6, title_font_size=18,x_label_font_size=16,
                      use_data_labels="end",
-                     sort=False)
+                     sort=False,
+                     squeeze_lower_x=0.1)
 
-bw.test_chart(50)
+bw.test_chart(10)

@@ -42,5 +42,6 @@ Animated
 
 [COVID-19 Timeseries](https://www.kaggle.com/lewisgmorris/easy-time-series-animation)
 
+[Olympic medals Timeseries + more](https://www.kaggle.com/lewisgmorris/olympic-timeseries-animation_)
 
 

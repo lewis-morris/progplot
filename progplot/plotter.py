@@ -25,6 +25,7 @@ import matplotlib.dates as mdates
 from random import shuffle
 import os
 import matplotlib.patheffects as PathEffects
+import math
 
 
 class _base_writer:
@@ -275,12 +276,26 @@ class _base_writer:
     def _assert_sort(self, sort):
         assert sort == True, "Cant display_top_x or use top_x while sort == False"
 
+    def rounddown(self, val, base):
+        return base * math.floor(val / base)
+
+    def _get_ax_diff(self):
+        return float(self._ax.get_xticklabels()[1].properties()["text"]) - float(self._ax.get_xticklabels()[0].properties()["text"])
+
+    def _set_x_lim(self,df):
+
+        if self._chart_options["squeeze_lower_x"] != None:
+            min_val = df[self.value_col].min()
+            self._ax.set_xlim(self.rounddown(min_val*self._chart_options["squeeze_lower_x"],self._get_ax_diff()),self._ax.get_xlim()[1])
+
     def set_chart_options(self, use_top_x=None, display_top_x=None, title=None, title_font_size=None, dateformat=None,
                           use_data_labels="end", x_tick_format=None, y_tick_format=None, y_label=True,
-                          y_label_font_size=None, x_label=True, x_label_font_size=None, figsize=(14, 8), dpi=100,
-                          border_size=None, border_colour=(0, 0, 0), palette="magma", palette_keep=True,
+                          y_label_font_size=None, x_label=True, x_label_font_size=None, figsize=(14, 8),
+                          dpi=100, border_size=None, border_colour=(0, 0, 0), palette="magma", palette_keep=True,
                           palette_random=True, tight_layout=True, sort=True, seaborn_style="whitegrid",
-                          seaborn_context="paper", font_scale=1.3, convert_bar_to_image=False, image_dict=None):
+                          seaborn_context="paper", font_scale=1.3, convert_bar_to_image=False, image_dict=None,
+                          squeeze_lower_x=None
+                          ):
         """
         ----------------------------------------------
 
@@ -372,6 +387,9 @@ class _base_writer:
         :param image_dict (dict) dictionary of images to be mapped to bars k: categorical value v: file path of image
                i.e {"test":"./test.jpg"}
 
+        :param squeeze_lower_x (float) Percentage of the lowest x to use as the fist xlim. To be used when you want to increase the lowest value on the x axis from 0.
+        i.e 0.2 would make the first x label 20% lower than the lowest data label.
+
         :return:
 
         """
@@ -432,7 +450,9 @@ class _base_writer:
                                "image_dict": gather_image_and_rough_reshape(image_dict, w, h,
                                                                             display_top_x,
                                                                             figsize[0]*dpi,
-                                                                            [uni.strip() for uni in uniques]) if convert_bar_to_image == True else False
+                                                                            [uni.strip() for uni in uniques]) if convert_bar_to_image == True else False,
+                               "squeeze_lower_x":squeeze_lower_x
+
                                }
 
     def _set_chart_axis(self, date_df):
@@ -865,6 +885,7 @@ class BarWriter(_base_writer):
 
         plt.ioff()
 
+        #get dates for title
         self._dates["current"] = df_date[self.timeseries_col].max()
         if self._window_back != None:
             self._dates["window"] = df_date[self.timeseries_col].max() - pd.to_timedelta(self._window_back)
@@ -894,6 +915,9 @@ class BarWriter(_base_writer):
             self._fig.canvas.draw()
         except:
             raise ValueError("Issue with formatting needs to be in the format {:.2f} etc or None")
+
+        #set xlim if needs to be higher
+        self._set_x_lim(df_date)
 
         ##squeeze values
         #minn = np.min(df_date[self.value_col]) * .9
