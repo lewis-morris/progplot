@@ -312,7 +312,7 @@ class _base_writer:
          <maxdatetime> - the max datetime from the dataframe
          <mindatetime> - the min datetime from the dataframe
          <currentdatetime> - the current datetime position in the dataframe
-         <rollingwindowfromdatetime> - the first date in the rolling window (if used)
+         <rollingdatetime> - the first date in the rolling window (if used)
 
          i.e "Average Daily Temperature <currentdatetime>" or "Total Daily Deaths From <mindatetime> to <maxdatetime>"
 
@@ -500,7 +500,7 @@ class _base_writer:
             text = text.replace("<maxdatetime>",self._dates["max"])
             text = text.replace("<mindatetime>", self._dates["min"])
             text = text.replace("<currentdatetime>", self._dates["current"])
-            if "rolling" in self._dates.keys():
+            if "window" in self._dates.keys():
                 text = text.replace("<rollingdatetime>", self._dates["rolling"])
             return text
         else:
@@ -508,7 +508,7 @@ class _base_writer:
             text = text.replace("<maxdatetime>",self._dates["max"].strftime(format))
             text = text.replace("<mindatetime>", self._dates["min"].strftime(format))
             text = text.replace("<currentdatetime>", self._dates["current"].strftime(format))
-            if "rolling" in self._dates.keys():
+            if "window" in self._dates.keys():
                 text = text.replace("<rollingdatetime>", self._dates["rolling"].strftime(format))
             return text
 
