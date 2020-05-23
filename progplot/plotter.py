@@ -12,6 +12,7 @@ import warnings
 import matplotlib.font_manager as fontman
 from PIL import ImageFont
 from PIL import ImageDraw
+
 try:
     from IPython.display import HTML
     from IPython.display import Video
@@ -101,15 +102,14 @@ class _base_writer:
 
         self.resample_agg = resample_agg
 
-
-
         self.output_agg = output_agg
 
         self._resample = self._check_resample_valid(resample)
 
-        #for title dates
+        # for title dates
         if self.output_agg != None and self.output_agg.find("rolling") >= 0:
-            self._window_back = "".join([s for s in output_agg if s.isdigit()]) + self._resample[0]
+            self._window_back = str(int("".join([s for s in output_agg if s.isdigit()])) * self._resample[1]) + \
+                                self._resample[0]
         else:
             self._window_back = None
 
@@ -119,8 +119,9 @@ class _base_writer:
         # prepare df for redndering
 
         self._video_df_base = self._create_new_frame()
-        self._dates= {"max":self._video_df_base[self.timeseries_col].max(),
-                     "min":self._video_df_base[self.timeseries_col].min()}
+        self._dates = {"max": self._video_df_base[self.timeseries_col].max(),
+                       "min": self._video_df_base[self.timeseries_col].min()}
+
     def _check_resample_valid(self, resample):
 
         if resample == None:
@@ -276,19 +277,29 @@ class _base_writer:
     def _assert_sort(self, sort):
         assert sort == True, "Cant display_top_x or use top_x while sort == False"
 
-    def rounddown(self, val, base):
+    def _rounddown(self, val, base):
         return base * math.floor(val / base)
 
     def _get_ax_diff(self):
-        return float(self._ax.get_xticklabels()[1].properties()["text"]) - float(self._ax.get_xticklabels()[0].properties()["text"])
+        return float(self._ax.get_xticklabels()[1].properties()["text"]) - float(
+            self._ax.get_xticklabels()[0].properties()["text"])
 
-    def _set_x_lim(self,df):
+    def _set_x_lim(self, df):
 
         if self._chart_options["squeeze_lower_x"] != None:
-            min_val = df[self.value_col].min()
-            min_val = min_val - (min_val*self._chart_options["squeeze_lower_x"])
-            min_val = self.rounddown(min_val, self._get_ax_diff())
-            self._ax.set_xlim(min_val,self._ax.get_xlim()[1])
+            lower = self._chart_options["squeeze_lower_x"]
+
+            # if % then set to x% lower than min data value
+            if lower.find("%") == -1:
+                self._ax.set_xlim(float(lower.replace("%", "")), self._ax.get_xlim()[1])
+            else:
+                lower = float(lower)
+                min_val = df[df[self.value_col] != 0][self.value_col].min()
+                if type(min_val) == np.nan:
+                    min_val = 0
+                min_val = min_val - (min_val * lower)
+                min_val = self._rounddown(min_val, self._get_ax_diff())
+                self._ax.set_xlim(min_val, self._ax.get_xlim()[1])
 
     def set_chart_options(self, use_top_x=None, display_top_x=None, title=None, title_font_size=None, dateformat=None,
                           use_data_labels="end", x_tick_format=None, y_tick_format=None, y_label=True,
@@ -301,7 +312,7 @@ class _base_writer:
         """
         ----------------------------------------------
 
-        Used to set chart options - to be called before video creation to test the output of the chart.
+        Used to set chart output options
 
         Important values are:
 
@@ -314,34 +325,25 @@ class _base_writer:
 
         ----------------------------------------------
 
-        :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data.
-        (the amount of data is sometimes to much to make visually appealing charts so trimming the data down is
-         beneficial)
+        :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data. (the amount of data is sometimes to much to make visually appealing charts so trimming the data down is beneficial)
 
-        :param display_top_x: (int) Amount of categories to display on chart. Differs from use_top_x - you can set
-        use_top_x to 20 and display_top_x to 10. Then some categories *MIGHT* fall off the bottom of the chart and be
-         replaced with a previously unseen value that was not "Displayed" before but was present in the data.
+        :param display_top_x: (int) Amount of categories to display on chart. Differs from use_top_x - you can set use_top_x to 20 and display_top_x to 10. Then some categories *MIGHT* fall off the bottom of the chart and be replaced with a previously unseen value that was not "Displayed" before but was present in the data.
 
-        :param title: (str) "The title is everything is determining where the time series is currently while the video is
-         running - you can therefor add a title as a string along with the following that will be substituted (the dates
-         can be auto formatted with the "dateformat" param)
+        :param title: (str) "The title is everything is determining where on the timeline the video is at while playing - you can therefor add a title as a string along with the following that will be substituted (the dates can be auto formatted with the "dateformat" param)
+        <maxdatetime> - the max datetime from the dataframe
+        <mindatetime> - the min datetime from the dataframe
+        <currentdatetime> - the current datetime position in the dataframe
+        <rollingdatetime> - the first date in the rolling window (if used)
 
-         <maxdatetime> - the max datetime from the dataframe
-         <mindatetime> - the min datetime from the dataframe
-         <currentdatetime> - the current datetime position in the dataframe
-         <rollingdatetime> - the first date in the rolling window (if used)
-
-         i.e "Average Daily Temperature <currentdatetime>" or "Total Daily Deaths From <mindatetime> to <maxdatetime>"
+         i.e "Average Daily Temperature <currentdatetime>" or "Total Rainfall From <mindatetime> to <maxdatetime>"
 
         :param title_font_size: (int) font size for title (None = style default)
 
         :param dateformat: (str) formatting for title datetime display. in strftime format.
 
-        :param x_tick_format: (str) string formatting i.e "£{:.2f}" £2.25 or "%Y-%d" date time like formatting
-        None = no formatting
+        :param x_tick_format: (str) string formatting i.e "£{:.2f}" £2.25 or "%Y-%d" date time like formatting None = no formatting
 
-        :param y_tick_format: (str) string formatting i.e "£{:.2f}" £2.25 or "%Y-%d" date time like formatting
-        None = no formatting
+        :param y_tick_format: (str) string formatting i.e "£{:.2f}" £2.25 or "%Y-%d" date time like formatting None = no formatting
 
         :param figsize: (tuple) matplotlib figsize
 
@@ -364,19 +366,13 @@ class _base_writer:
 
         :param palette: (str) matplotlib style palette name
 
-        :param palette_keep: (bool) If True chart colours are pinned to categories False colours are pinned to positions
-               on the chart.
+        :param palette_keep: (bool) If True chart colours are pinned to categories False colours are pinned to positions on the chart.
 
-        :param palette_random: (bool) When the palette colours are created by default they are randomised and assigned
-               to each categorical value. This is because depending on the palette type and amount of data is can
-               sometimes be hard to determine the movement category (moving up and down the chart) when sort == True.
-               Randomising colours can help visualise the movement somewhat.
+        :param palette_random: (bool) When the palette colours are created by default they are randomised and assigned to each categorical value. This is because depending on the palette type and amount of data is can sometimes be hard to determine the movement category (moving up and down the chart) when sort == True. Randomising colours can help visualise the movement somewhat.
 
-        :param tight_layout: (bool) use tight layout on plot to make sure all text fits. Sometimes causes chart to
-               move when animated.
+        :param tight_layout: (bool) use tight layout on plot to make sure all text fits. Sometimes causes chart to move when animated.
 
-        :param sort: (bool) True data is sorted and chart positions change. I.e the highest values are reordered to
-               the bottom of the chart.
+        :param sort: (bool) True data is sorted and chart positions change. I.e the highest values are reordered to the bottom of the chart.
 
         :param seaborn_style (str) default "whitegrid" - options darkgrid, whitegrid, dark, white, ticks
 
@@ -386,11 +382,12 @@ class _base_writer:
 
         :param convert_bar_to_image (bool) if True the bargraph bars will be mapped to images specified in "image_dict"
 
-        :param image_dict (dict) dictionary of images to be mapped to bars k: categorical value v: file path of image
-               i.e {"test":"./test.jpg"}
+        :param image_dict (dict) dictionary of images to be mapped to bars k: categorical value v: file path of image i.e {"test":"./test.jpg"}
 
-        :param squeeze_lower_x (float) Percentage of the lowest x to use as the fist xlim. To be used when you want to increase the lowest value on the x axis from 0.
-        i.e 0.2 would make the first x label 20% lower than the lowest data label.
+        :param squeeze_lower_x (str/None) Used to increase the lower bound X axis tick labels value.
+        > None - automatically determines the values
+        > "xx%" - squeeze the value to xx% lower than the minimum data value i.e "20%"
+        > "30" - will set the lowerbound x value to a static value 30
 
         :return:
 
@@ -401,7 +398,7 @@ class _base_writer:
 
         ##trim_dataframe
         if type(use_top_x) == int:
-            #self._assert_sort(sort)
+            # self._assert_sort(sort)
             max_date = self._video_df_base[self.timeseries_col].tail(1).item()
             self.category_values = \
                 self._video_df_base[self._video_df_base[self.timeseries_col] == max_date].sort_values(
@@ -451,9 +448,10 @@ class _base_writer:
                                "convert_bar_to_image": convert_bar_to_image,
                                "image_dict": gather_image_and_rough_reshape(image_dict, w, h,
                                                                             display_top_x,
-                                                                            figsize[0]*dpi,
-                                                                            [uni.strip() for uni in uniques]) if convert_bar_to_image == True else False,
-                               "squeeze_lower_x":squeeze_lower_x
+                                                                            figsize[0] * dpi,
+                                                                            [uni.strip() for uni in
+                                                                             uniques]) if convert_bar_to_image == True else False,
+                               "squeeze_lower_x": squeeze_lower_x
 
                                }
 
@@ -519,7 +517,7 @@ class _base_writer:
     def _sub_title(self, text):
 
         if self._chart_options['dateformat'] == None:
-            text = text.replace("<maxdatetime>",self._dates["max"])
+            text = text.replace("<maxdatetime>", self._dates["max"])
             text = text.replace("<mindatetime>", self._dates["min"])
             text = text.replace("<currentdatetime>", self._dates["current"])
             if "window" in self._dates.keys():
@@ -527,13 +525,12 @@ class _base_writer:
             return text
         else:
             format = self._chart_options['dateformat']
-            text = text.replace("<maxdatetime>",self._dates["max"].strftime(format))
+            text = text.replace("<maxdatetime>", self._dates["max"].strftime(format))
             text = text.replace("<mindatetime>", self._dates["min"].strftime(format))
             text = text.replace("<currentdatetime>", self._dates["current"].strftime(format))
             if "window" in self._dates.keys():
                 text = text.replace("<rollingdatetime>", self._dates["window"].strftime(format))
             return text
-
 
     def _add_x_to_formatting_for_matplotlib(self, text):
         text = self._chart_options["x_tick_format"]
@@ -554,7 +551,8 @@ class _base_writer:
         :return:
         """
 
-        assert type(self._video_df_base) == pd.DataFrame, "You have not set the data yet please do this before continuing"
+        assert type(
+            self._video_df_base) == pd.DataFrame, "You have not set the data yet please do this before continuing"
 
         # save file name
         self._last_video_save = video_file_name
@@ -575,7 +573,7 @@ class _base_writer:
                                "video_file_name": video_file_name,
                                "gif_file_name": None,
                                "fps": fps,
-                               "fourcc":fourcccodecname}
+                               "fourcc": fourcccodecname}
 
     def test_chart(self, frame_no=None, as_pil=True):
         """
@@ -652,12 +650,10 @@ class _base_writer:
 
     def _convert_to_type(self):
 
-        co = subprocess.run(f"ffmpeg -y -i {self._video_options['video_file_name']} -an -vcodec libx264 outfile.mp4",shell=True)
+        co = subprocess.run(f"ffmpeg -y -i {self._video_options['video_file_name']} -an -vcodec libx264 outfile.mp4",
+                            shell=True)
         os.remove(self._video_options['video_file_name'])
-        os.rename("outfile.mp4",self._video_options['video_file_name'])
-
-
-
+        os.rename("outfile.mp4", self._video_options['video_file_name'])
 
     def create_gif(self, show_html=True):
         """
@@ -705,7 +701,6 @@ class _base_writer:
         except:
             return Video(self._video_options["video_file_name"], embed=True)
 
-
     def show_gif(self):
         """
         Shows gif in Jupyter
@@ -722,24 +717,24 @@ class _base_writer:
     def _set_tight_layout(self):
 
         plt.tight_layout()
-        #self._ax.get_figure().canvas.draw()
+        # self._ax.get_figure().canvas.draw()
         chart_x1 = self._ax.get_window_extent().x1
         ticks = []
         tight = False
         for tick in self._ax.get_xticklabels():
-                if tick.get_window_extent().x1 < chart_x1:
-                    ticks.append(tick.get_position()[0])
-                else:
-                    tight = True
+            if tick.get_window_extent().x1 < chart_x1:
+                ticks.append(tick.get_position()[0])
+            else:
+                tight = True
 
-        #ticks = [tick.get_position()[0] for tick in self._ax.get_xticklabels() if
+        # ticks = [tick.get_position()[0] for tick in self._ax.get_xticklabels() if
         #         tick.get_window_extent().x1 < chart_x1]
 
         self._ax.set_xticks(ticks)
         if tight:
             plt.tight_layout()
 
-    def _get_numpy(self,trans = False):
+    def _get_numpy(self, trans=False):
 
         # fig.savefig("temp_out.png")
         # plt.close(fig)
@@ -788,10 +783,11 @@ class _base_writer:
 
     def _get_date_df(self, i, vals=False):
         # get dates df SORTED IF NEEDED
-        #self._assert_sort(self._chart_options["sort"])
+        # self._assert_sort(self._chart_options["sort"])
 
         if i > len(self._video_options["unique_dates"]):
-            raise ValueError(f"Frame number not available - must be between 0 and {len(self._video_options['unique_dates'])-1}")
+            raise ValueError(
+                f"Frame number not available - must be between 0 and {len(self._video_options['unique_dates']) - 1}")
 
         if self._chart_options["sort"]:
             temp_df = self._get_temp_df_sort_values(self._video_options["unique_dates"][i], self._keep_history)
@@ -800,11 +796,11 @@ class _base_writer:
 
         # filter display_top_x value to only SHOW the top x values.
         if type(vals) == pd.core.series.Series:
-            #self._assert_sort(self._chart_options["sort"])
+            # self._assert_sort(self._chart_options["sort"])
             temp_df = temp_df[temp_df[self.category_col].isin(vals)]
 
         elif type(self._chart_options["display_top_x"]) == int:
-            #self._assert_sort(self._chart_options["sort"])
+            # self._assert_sort(self._chart_options["sort"])
             temp_df = temp_df.tail(self._chart_options["display_top_x"])
 
         else:
@@ -818,64 +814,76 @@ class _base_writer:
         fonts = {}
 
         if self._chart_options["convert_bar_to_image"]:
-            fontdict["color"] = (.965,.965,.965)
+            fontdict["color"] = (.965, .965, .965)
 
         for i, rect in enumerate(self._ax.patches):
 
             # remove value if data = 0 and start =
-            if data[i] != 0 and rect.get_window_extent().x0 == self._ax.get_window_extent().x0:
+            # if data[i] != 0 : #and rect.get_window_extent().x0 == self._ax.get_window_extent().x0:
 
-                label_txt = data[i]
+            label_txt = data[i]
 
-                # format data
-                if self._chart_options["x_tick_format"] != None:
-                    label_txt = self._chart_options["x_tick_format"].format(label_txt)
+            # format data
+            if self._chart_options["x_tick_format"] != None:
+                label_txt = self._chart_options["x_tick_format"].format(label_txt)
 
-                ext = self._ax.get_window_extent()
+            ext = self._ax.get_window_extent()
 
-                extra_perc = 0.005
+            extra_perc = 0.005
 
-                extra = self._ax.get_xlim()[1] * extra_perc
+            extra = self._ax.get_xlim()[1] * extra_perc
 
-                # locations for base
-                yloc_middle_bar = rect.get_y() + rect.get_height() / 2
+            # locations for base
+            yloc_middle_bar = rect.get_y() + rect.get_height() / 2
+
+            if self._ax.get_window_extent().transformed(rect._transform.inverted()).x0 > rect.get_bbox().x0:
+                xloc_begg_bar = self._ax.get_window_extent().transformed(rect._transform.inverted()).x0 + extra
+            else:
                 xloc_begg_bar = rect.get_bbox().x0 + extra
-                xloc_end_bar = rect.get_bbox().x1 + extra
-                xloc_inside_bar = rect.get_bbox().x1 - extra
 
-                if self._chart_options["use_data_labels"] == "base":
-                    txt = self._ax.text(xloc_begg_bar, yloc_middle_bar, label_txt, verticalalignment='center',
-                                        horizontalalignment="left",
-                                        fontdict=fontdict)
+            xloc_end_bar = rect.get_bbox().x1 + extra
+            xloc_inside_bar = rect.get_bbox().x1 - extra
 
-                elif self._chart_options["use_data_labels"] == "end":
+            if self._chart_options["use_data_labels"] == "base":
+                txt = self._ax.text(xloc_begg_bar, yloc_middle_bar, label_txt, verticalalignment='center',
+                                    horizontalalignment="left",
+                                    fontdict=fontdict)
 
+            elif self._chart_options["use_data_labels"] == "end":
+
+                if rect.get_bbox().x1 >= self._ax.get_window_extent()._bbox.x0:
                     txt = self._ax.text(xloc_end_bar, yloc_middle_bar, label_txt, verticalalignment='center',
                                         horizontalalignment="left",
                                         fontdict=fontdict)
-                    inc = 0.005
-
-                    if txt.get_window_extent().x1 > self._ax.get_window_extent().x1:
-                        txt.set_visible(False)
-                        txt = self._ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
-                                            horizontalalignment="right", fontdict=fontdict)
-
-                    if txt.get_window_extent().x0 == 0:
-                        pass
                 else:
+
+                    txt = self._ax.text(xloc_begg_bar, yloc_middle_bar, label_txt, verticalalignment='center',
+                                        horizontalalignment="left",
+                                        fontdict=fontdict)
+                inc = 0.005
+
+                if txt.get_window_extent().x1 > self._ax.get_window_extent().x1:
+                    txt.set_visible(False)
+                    txt = self._ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
+                                        horizontalalignment="right", fontdict=fontdict)
+
+                if txt.get_window_extent().x0 == 0:
                     pass
+            else:
+                pass
 
-                # strokes?
+            # strokes?
 
-                stroke = int(self._fig.get_window_extent().x1 * 0.0015)
-                if stroke <= 0:
-                    stroke = 1
-                txt.set_path_effects([PathEffects.withStroke(linewidth=stroke * 1,
-                                                             foreground=self._chart_options["border_colour"])])
+            stroke = int(self._fig.get_window_extent().x1 * 0.0015)
+            if stroke <= 0:
+                stroke = 1
+            txt.set_path_effects([PathEffects.withStroke(linewidth=stroke * 1,
+                                                         foreground=self._chart_options["border_colour"])])
 
-                fonts[i] = txt
+            fonts[i] = txt
 
         return fonts
+
 
 class BarWriter(_base_writer):
 
@@ -887,7 +895,7 @@ class BarWriter(_base_writer):
 
         plt.ioff()
 
-        #get dates for title
+        # get dates for title
         self._dates["current"] = df_date[self.timeseries_col].max()
         if self._window_back != None:
             self._dates["window"] = df_date[self.timeseries_col].max() - pd.to_timedelta(self._window_back)
@@ -901,7 +909,7 @@ class BarWriter(_base_writer):
                                    x=self.value_col,
                                    data=df_date,
                                    palette=self._chart_options['palette'],
-                                   zorder = 1)
+                                   zorder=1)
         else:
             border = True
             self._ax = sns.barplot(y=self.category_col,
@@ -918,27 +926,25 @@ class BarWriter(_base_writer):
         except:
             raise ValueError("Issue with formatting needs to be in the format {:.2f} etc or None")
 
-        #set xlim if needs to be higher
+        # set xlim if needs to be higher
         self._set_x_lim(df_date)
 
         ##squeeze values
-        #minn = np.min(df_date[self.value_col]) * .9
-        #if minn < 0:
+        # minn = np.min(df_date[self.value_col]) * .9
+        # if minn < 0:
         #    minn = 0
-        #maxx = np.max(df_date[self.value_col]) * 1.07#
+        # maxx = np.max(df_date[self.value_col]) * 1.07#
 
-        #if minn != maxx :
+        # if minn != maxx :
         #    self._ax.set_xlim(minn, maxx)
 
-        #self._ax.autoscale(enable=True, axis="x", tight=True)
+        # self._ax.autoscale(enable=True, axis="x", tight=True)
 
         # set line to 0 if no value
         [x.set_linewidth(0) for x in self._ax.get_children() if
          type(x) == matplotlib.patches.Rectangle and x.get_width() == 0]
 
-
         self._set_chart_axis(df_date)
-
 
         # tight layout 100% recommended
         if self._chart_options["tight_layout"]:
@@ -949,22 +955,22 @@ class BarWriter(_base_writer):
             nump = self._get_numpy(False)
 
             new_bars = get_bar_appended_chart(nump, rect_dict, self._chart_options["image_dict"], border,
-                                          self._chart_options["border_size"],
-                                          self._chart_options['border_colour'])
+                                              self._chart_options["border_size"],
+                                              self._chart_options['border_colour'])
 
             ext = self._ax.get_window_extent().transformed(self._fig.dpi_scale_trans.inverted())
             extp0 = ext.p0 * self._chart_options['dpi']
             extp1 = ext.p1 * self._chart_options['dpi']
 
             new_bars = new_bars[int(self._fig.bbox.extents[3] - extp1[1]):int(self._fig.bbox.extents[3] - extp0[1]),
-                   int(extp0[0]):int(extp1[0]), :][:, :, ::-1].copy()
+                       int(extp0[0]):int(extp1[0]), :][:, :, ::-1].copy()
 
             # TODO TRIED THIS METHOD AND COULD NOT GET IT TO WORK PROPERLY - NEEDS LOOKING AT AS BETTER
-            #blank = np.ones((int(self._fig.bbox.height), int(self._fig.bbox.width), 3)) * 255
-            #blank[int(self._fig.bbox.extents[3] - extp1[1]):int(self._fig.bbox.extents[3] - extp0[1]),
+            # blank = np.ones((int(self._fig.bbox.height), int(self._fig.bbox.width), 3)) * 255
+            # blank[int(self._fig.bbox.extents[3] - extp1[1]):int(self._fig.bbox.extents[3] - extp0[1]),
             #       int(extp0[0]):int(extp1[0]), :] = new_bars
 
-            #new_bars = blank.astype(np.uint8).copy()
+            # new_bars = blank.astype(np.uint8).copy()
 
         if self._chart_options["use_data_labels"] != None:
             lst = list(df_date[self.value_col])
@@ -972,27 +978,26 @@ class BarWriter(_base_writer):
             fonts = self._add_text_values(lst)
 
             if self._chart_options["convert_bar_to_image"]:
-
                 nump = nump.copy()
 
                 nump[int(self._fig.bbox.extents[3] - extp1[1]):int(self._fig.bbox.extents[3] - extp0[1]),
-                   int(extp0[0]):int(extp1[0]), :] = new_bars
+                int(extp0[0]):int(extp1[0]), :] = new_bars
 
                 return self._draw_text(nump, fonts, 2)[:, :, ::-1]
 
-                #TODO TRIED THIS METHOD AND COULD NOT GET IT TO WORK PROPERLY - NEEDS LOOKING AT AS BETTER
+                # TODO TRIED THIS METHOD AND COULD NOT GET IT TO WORK PROPERLY - NEEDS LOOKING AT AS BETTER
 
-                #current_frame = self._get_numpy(False)
+                # current_frame = self._get_numpy(False)
 
-                #mask = cv2.cvtColor(cv2.absdiff(nump, current_frame), cv2.COLOR_BGR2GRAY)
-                #mask = np.where(mask == 254, 255, mask)
-                #mask = np.stack((mask) * 3, axis=-1)
+                # mask = cv2.cvtColor(cv2.absdiff(nump, current_frame), cv2.COLOR_BGR2GRAY)
+                # mask = np.where(mask == 254, 255, mask)
+                # mask = np.stack((mask) * 3, axis=-1)
 
-                #mask = np.where(mask >5, 5, 255)/255
+                # mask = np.where(mask >5, 5, 255)/255
 
-                #blank = np.ones((int(self._fig.bbox.height), int(self._fig.bbox.width), 3)) * 255
+                # blank = np.ones((int(self._fig.bbox.height), int(self._fig.bbox.width), 3)) * 255
 
-                #return ((nump1[:,:,::-1] * mask) + (nump[:, :, :3] * (1 - mask))).astype(np.uint8)
+                # return ((nump1[:,:,::-1] * mask) + (nump[:, :, :3] * (1 - mask))).astype(np.uint8)
 
         nump = self._get_numpy(True)
 
@@ -1001,24 +1006,23 @@ class BarWriter(_base_writer):
     def _draw_text(self, img, font_list={}, stroke=None):
         ## used to draw text onto image
 
-        h,w,_ = img.shape
+        h, w, _ = img.shape
 
         pil_img = PIL.Image.fromarray(img)
 
-
         draw = ImageDraw.Draw(pil_img)
 
-        for k,v in font_list.items():
+        for k, v in font_list.items():
 
             font_prob = v.get_font_properties()
 
             text = v.properties()["prop_tup"][2]
             font_loc = self._ax.transData.transform(v.get_position())
-            font_loc[1] = (h - font_loc[1])-(v.get_window_extent().extents[3] -v.get_window_extent().extents[1])/2
+            font_loc[1] = (h - font_loc[1]) - (v.get_window_extent().extents[3] - v.get_window_extent().extents[1]) / 2
             if v.get_ha() == "right":
                 font_loc[0] = font_loc[0] - ((v.get_window_extent().extents[2] - v.get_window_extent().extents[0]))
 
-            size = int(v.get_fontsize()*1.15)
+            size = int(v.get_fontsize() * 1.15)
 
             font = fontman.findfont(font_prob.get_family()[0].replace("-", " "))
 
@@ -1029,17 +1033,16 @@ class BarWriter(_base_writer):
             text_col = (255, 255, 255)
             fill_col = (0, 0, 0)
 
-
             draw.text(font_loc, text, text_col, font=font, stroke_width=2, stroke_fill=fill_col, align=v.get_ha())
 
         return np.array(pil_img)
 
-    def _write_to_outwriter(self,img):
+    def _write_to_outwriter(self, img):
         if img.shape[2] == 3:
-            self._out.write(img[:,:,::-1])
+            self._out.write(img[:, :, ::-1])
         else:
             img = img[:, :, :3]
-            self._out.write(img[:,:,::-1])
+            self._out.write(img[:, :, ::-1])
 
     def _write_extra_frames(self, i, img, df_date):
 
@@ -1084,6 +1087,7 @@ class BarWriter(_base_writer):
 
     def get_unique_dates(self):
         return self._video_options['unique_dates']
+
 
 class LineWriter(_base_writer):
 

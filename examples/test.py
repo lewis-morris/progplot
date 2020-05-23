@@ -71,7 +71,6 @@ bw.set_data(data=olymp_df, category_col="region", timeseries_col="Year", value_c
 
 bw.set_display_settings(time_in_seconds=45, video_file_name = "mean_height_by_country.mp4")
 
-
 bw.set_chart_options(x_tick_format="{:,.2f}",
                      palette="Pastel1",
                      title="Top 10 Rolling Mean Height <rollingdatetime> to <currentdatetime>",dateformat="%Y",
