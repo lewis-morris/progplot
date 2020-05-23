@@ -846,6 +846,8 @@ class _base_writer:
                 # strokes?
 
                 stroke = int(self._fig.get_window_extent().x1 * 0.0015)
+                if stroke <= 0:
+                    stroke = 1
                 txt.set_path_effects([PathEffects.withStroke(linewidth=stroke * 1,
                                                              foreground=self._chart_options["border_colour"])])
 
