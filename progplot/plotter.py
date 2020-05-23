@@ -286,7 +286,9 @@ class _base_writer:
 
         if self._chart_options["squeeze_lower_x"] != None:
             min_val = df[self.value_col].min()
-            self._ax.set_xlim(self.rounddown(min_val*self._chart_options["squeeze_lower_x"],self._get_ax_diff()),self._ax.get_xlim()[1])
+            min_val = min_val - (min_val*self._chart_options["squeeze_lower_x"])
+            min_val = self.rounddown(min_val, self._get_ax_diff())
+            self._ax.set_xlim(min_val,self._ax.get_xlim()[1])
 
     def set_chart_options(self, use_top_x=None, display_top_x=None, title=None, title_font_size=None, dateformat=None,
                           use_data_labels="end", x_tick_format=None, y_tick_format=None, y_label=True,

@@ -41,24 +41,44 @@ from progplot import BarWriter
 #bw.test_chart()
 #bw.write_video()
 
-df = pd.read_csv("./examples/usa_county_wise.csv")
-df["Date"] = pd.to_datetime(df["Date"])
+df = pd.read_csv("./examples/athlete_events.csv")
+
+#read the region data
+noc = pd.read_csv("./examples/noc_regions.csv")
+
+#merge the two
+olymp_df = df.merge(noc,left_on="NOC",right_on="NOC")
+
+#select categories we want
+olymp_df = olymp_df[["region","Age","Height","Weight","Year","Sport","Medal"]]
+
+#fix the medal column
+
+olymp_df = pd.concat([olymp_df,pd.get_dummies(olymp_df["Medal"])],axis=1)
+
+olymp_df["Total"] = olymp_df["Bronze"] + olymp_df["Gold"] + olymp_df["Silver"]
+
+olymp_df.drop("Medal",axis=1, inplace=True)
+olymp_df["Year"] = pd.to_datetime(olymp_df["Year"],format="%Y")
+
+
+
 from progplot import BarWriter
 
 bw = BarWriter()
 
-bw.set_data(df, "Province_State", "Date", "Deaths", resample="1w", groupby_agg="sum", resample_agg="mean",output_agg=None)
+bw.set_data(data=olymp_df, category_col="region", timeseries_col="Year", value_col="Age", groupby_agg="mean", resample_agg="mean", output_agg="4rolling", resample = "4y")
 
-bw.set_display_settings(time_in_seconds=10, video_file_name = "deathsbystate.mp4")
+bw.set_display_settings(time_in_seconds=45, video_file_name = "mean_height_by_country.mp4")
 
-bw.set_chart_options(x_tick_format="{:,.0f}", dateformat="%Y-%m",
-                     palette="copper",
-                     title="Top 15 Weekly Deaths <currentdatetime>", y_label="State",
-                     use_top_x=20, display_top_x=15,
-                     border_size=2, border_colour=(0.12,0.12,0.12),
-                     font_scale=1.6, title_font_size=18,x_label_font_size=16,
+
+bw.set_chart_options(x_tick_format="{:,.2f}",
+                     palette="Pastel1",
+                     title="Top 10 Rolling Mean Height <rollingdatetime> to <currentdatetime>",dateformat="%Y",
+                     y_label="State",
+                     use_top_x=20, display_top_x=10,
+                     border_size=2, border_colour=(0.3,0.3,0.3),
+                     font_scale=1.3,
                      use_data_labels="end",
-                     sort=False,
-                     squeeze_lower_x=0.1)
-
-bw.test_chart(10)
+                     squeeze_lower_x=0.2)
+bw.test_chart(27)

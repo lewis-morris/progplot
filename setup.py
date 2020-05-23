@@ -8,7 +8,7 @@ setup(
     package_data={'': ['./progplot/error.png']},
     include_package_data=True,
     name='progplot',
-    version="0.2.14",
+    version="0.2.15",
     packages=['progplot'],
     url='https://github.com/lewis-morris/progplot',
     license='MIT',
