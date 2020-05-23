@@ -108,7 +108,7 @@ class _base_writer:
 
         #for title dates
         if self.output_agg != None and self.output_agg.find("rolling") >= 0:
-            self._window_back = str([int(s) for s in str.split() if s.isdigit()]) + self._resample[0]
+            self._window_back = "".join([s for s in output_agg if s.isdigit()]) + self._resample[0]
         else:
             self._window_back = None
 
@@ -283,7 +283,7 @@ class _base_writer:
                           seaborn_context="paper", font_scale=1.3, convert_bar_to_image=False, image_dict=None):
         """
         ----------------------------------------------
-        
+
         Used to set chart options - to be called before video creation to test the output of the chart.
 
         Important values are:

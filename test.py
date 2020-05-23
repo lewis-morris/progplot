@@ -64,13 +64,13 @@ image_dict
 
 bw = BarWriter()
 
-bw.set_data(df_country, "Country/Region", "Date", "Deaths", resample="1d", groupby_agg="sum", resample_agg="sum",output_agg=None)
+bw.set_data(df_country, "Country/Region", "Date", "Deaths", resample="1d", groupby_agg="sum", resample_agg="sum",output_agg="4rolling")
 
 bw.set_display_settings(time_in_seconds=45, video_file_name = "deathsbycountrywithflag.mp4")
 
 bw.set_chart_options(x_tick_format="{:,.0f}", dateformat="%Y-%m-%d",
                      palette="summer",
-                     title="Top 15 Countries by Total Deaths <mindatetime> to <currentdatetime>",
+                     title="Top 15 Countries by Total Deaths <rollingdatetime> to <currentdatetime>",
                      use_top_x=30, display_top_x=15,
                      border_size=2, border_colour=(0.12,0.12,0.12),
                      font_scale=1.6,
