@@ -766,7 +766,7 @@ class _base_writer:
 
     def _get_date_df(self, i, vals=False):
         # get dates df SORTED IF NEEDED
-        self._assert_sort(self._chart_options["sort"])
+        #self._assert_sort(self._chart_options["sort"])
 
         if self._chart_options["sort"]:
             temp_df = self._get_temp_df_sort_values(self._video_options["unique_dates"][i], self._keep_history)
@@ -775,11 +775,11 @@ class _base_writer:
 
         # filter display_top_x value to only SHOW the top x values.
         if type(vals) == pd.core.series.Series:
-            self._assert_sort(self._chart_options["sort"])
+            #self._assert_sort(self._chart_options["sort"])
             temp_df = temp_df[temp_df[self.category_col].isin(vals)]
 
         elif type(self._chart_options["display_top_x"]) == int:
-            self._assert_sort(self._chart_options["sort"])
+            #self._assert_sort(self._chart_options["sort"])
             temp_df = temp_df.tail(self._chart_options["display_top_x"])
 
         else:
