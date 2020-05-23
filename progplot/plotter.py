@@ -50,17 +50,27 @@ class _base_writer:
     def set_data(self, data, category_col, timeseries_col, value_col,
                  groupby_agg="sum", resample_agg="sum", output_agg="cumsum", resample=None):
         """
+
         Used to set the data prior to chart creation.
         At this point a new dataframe is created to suit the settings. Depending on your choices this could take a
         while to complete.
-        :param data (pandas Dataframe): input data, must have datetime values, categorical values and numerical values (or other if using count aggregation)
+
+        :param data: (DataFrame) - pandas dataframe
+
         :param category_col: (str) the name of pandas column that holds the categorical data
+
         :param timeseries_col: (str) the name of pandas column that holds the timeseries data
+
         :param value_col: (str) the name of pandas column that holds the value data you want to measure - if aggregation is set to "count" this can be a coloumn containing strings
+
         :param groupby_agg: (str / None) the aggregation function used to group identical datetimes with. "count", "sum", "mean" or None
+
         :param resample_agg: (str / None) the aggregation function to used to resample by datetime. "count", "sum", "mean" or None
+
         :param output_agg: (str / None) how to deal with the final output data. "cumsum" for a cumlative sum over the datetimes, "xrolling" for a rolling window where x is the number of windows i.e "4rolling", "6rolling", or None.
+
         :param resample: (str) pandas resample arg - resampling is necessary to normalize the dates. Use options (y,m,d,h,s,m,ms etc) i.e "2d" for sampling every 2 days, "1y" for every year. "6m" for six months etc.
+
         :return: None
         """
 
@@ -87,18 +97,18 @@ class _base_writer:
             value_col) == str and value_col in self.df.columns, "value_col is not str or not in dataframe columns"
         self.value_col = value_col
 
-        assert (type(groupby_agg) == str and groupby_agg in ["count", "mean", "sum"]) or groupby_agg == None, \
+        assert (type(groupby_agg) == str and groupby_agg in ["count", "mean", "sum"]) or groupby_agg is None, \
             'groupby_agg is not str or not in ["count","mean","sum"]'
 
         self.groupby_agg = groupby_agg
 
-        assert (type(resample_agg) == str and resample_agg.lower() in ["count", "mean", "sum"]) or resample_agg == None, \
+        assert (type(resample_agg) == str and resample_agg.lower() in ["count", "mean", "sum"]) or resample_agg is None, \
             'resample_agg is not str or not in ["count","mean","sum"]'
 
         self.resample_agg = resample_agg
 
         assert (type(output_agg) == str and (output_agg in [
-            "cumsum"] or "rolling" in output_agg.lower())) or output_agg == None, 'output_agg is not None or not in ["cumsum"] or like "4rolling"]'
+            "cumsum"] or "rolling" in output_agg.lower())) or output_agg is None, 'output_agg is not None or not in ["cumsum"] or like "4rolling"]'
 
         self.resample_agg = resample_agg
 
@@ -107,7 +117,7 @@ class _base_writer:
         self._resample = self._check_resample_valid(resample)
 
         # for title dates
-        if self.output_agg != None and self.output_agg.find("rolling") >= 0:
+        if self.output_agg is not None and self.output_agg.find("rolling") >= 0:
             self._window_back = str(int("".join([s for s in output_agg if s.isdigit()])) * self._resample[1]) + \
                                 self._resample[0]
         else:
@@ -124,7 +134,7 @@ class _base_writer:
 
     def _check_resample_valid(self, resample):
 
-        if resample == None:
+        if resample is None:
             return None
 
         str_type = []
@@ -144,7 +154,7 @@ class _base_writer:
 
         assert txt in ["d", "m", "h", "s", "w", "y", "rolling"], 'resample type is not valid'
 
-        return (txt, num)
+        return txt, num
 
     def _add_missing_dates(self, date_list, df):
         # used to add missing dates to timeseries do categories do not dissapear from chart
@@ -188,7 +198,7 @@ class _base_writer:
 
             df = self._add_missing_dates(dt_index, df)
 
-            if self._resample != None:
+            if self._resample is not None:
                 temp_df = self._do_agg(df, cat, True)
             else:
                 temp_df = self._do_agg(df, cat, False)
@@ -244,7 +254,7 @@ class _base_writer:
 
         if self.output_agg == "cumsum":
             df = pd.DataFrame({"Value": df[self.value_col].cumsum()})
-        elif self.output_agg == None or self.output_agg.lower() == "None":
+        elif self.output_agg is None or self.output_agg.lower() == "None":
             pass
         elif self.output_agg.find("rolling") >= 0:
             _, num = self._check_resample_valid(self.output_agg)
@@ -274,10 +284,12 @@ class _base_writer:
         elif self._resample[0] == "hours":
             return datetime.timedelta(hours=self._resample[1])
 
-    def _assert_sort(self, sort):
+    @staticmethod
+    def _assert_sort(sort):
         assert sort == True, "Cant display_top_x or use top_x while sort == False"
 
-    def _rounddown(self, val, base):
+    @staticmethod
+    def _rounddown(val, base):
         return base * math.floor(val / base)
 
     def _get_ax_diff(self):
@@ -286,14 +298,14 @@ class _base_writer:
 
     def _set_x_lim(self, df):
 
-        if self._chart_options["squeeze_lower_x"] != None:
+        if self._chart_options["squeeze_lower_x"] is not None:
             lower = self._chart_options["squeeze_lower_x"]
 
             # if % then set to x% lower than min data value
             if lower.find("%") == -1:
-                self._ax.set_xlim(float(lower.replace("%", "")), self._ax.get_xlim()[1])
+                self._ax.set_xlim(float(lower), self._ax.get_xlim()[1])
             else:
-                lower = float(lower)
+                lower = float(lower.replace("%", ""))/100
                 min_val = df[df[self.value_col] != 0][self.value_col].min()
                 if type(min_val) == np.nan:
                     min_val = 0
@@ -325,6 +337,7 @@ class _base_writer:
 
         ----------------------------------------------
 
+        :param image_dict:
         :param use_top_x: (int) Amount of categories to keep when generating chart. None uses all data. (the amount of data is sometimes to much to make visually appealing charts so trimming the data down is beneficial)
 
         :param display_top_x: (int) Amount of categories to display on chart. Differs from use_top_x - you can set use_top_x to 20 and display_top_x to 10. Then some categories *MIGHT* fall off the bottom of the chart and be replaced with a previously unseen value that was not "Displayed" before but was present in the data.
@@ -382,10 +395,11 @@ class _base_writer:
 
         :param convert_bar_to_image (bool) if True the bargraph bars will be mapped to images specified in "image_dict"
 
-        :param image_dict (dict) dictionary of images to be mapped to bars k: categorical value v: file path of image i.e {"test":"./test.jpg"}
+        :param image_dict (dictionary) Used to map images to categories on the bargraph - format needs to be {k (categorical value): v (image path)} i.e {"test":"./test.jpg"}
 
-        :param squeeze_lower_x (str/None) Used to increase the lower bound X axis tick labels value.
-        > None - automatically determines the values
+        :param squeeze_lower_x (str / None) - used to increase the lowerbound x tick label. Useful if the data values get very high as bar will start at 0.
+
+        > None - x tick label values are automatically assigned by matplotlib
         > "xx%" - squeeze the value to xx% lower than the minimum data value i.e "20%"
         > "30" - will set the lowerbound x value to a static value 30
 
@@ -454,69 +468,70 @@ class _base_writer:
                                "squeeze_lower_x": squeeze_lower_x
 
                                }
-
+    def show_output_df(self):
+        return self._video_df
     def _set_chart_axis(self, date_df):
 
         # set labels
 
         # set x label if needed
-        if self._chart_options['x_label'] == False:
+        if not self._chart_options['x_label']:
             self._ax.xaxis.label.set_visible(False)
-        elif self._chart_options['x_label'] == True:
+        elif self._chart_options['x_label']:
             pass
         else:
             self._ax.set_ylabel(self._chart_options['x_label'])
         # set font size
-        if self._chart_options["x_label_font_size"] != None:
+        if self._chart_options["x_label_font_size"] is not None:
             self._ax.set_xlabel(self._ax.get_xlabel(), fontsize=self._chart_options['x_label_font_size'])
 
         # set y label if needed
-        if self._chart_options['y_label'] == False:
+        if not self._chart_options['y_label']:
             self._ax.yaxis.label.set_visible(False)
-        elif self._chart_options['y_label'] == True:
+        elif self._chart_options['y_label']:
             pass
         else:
             self._ax.set_ylabel(self._chart_options['y_label'])
 
         # set font size
-        if self._chart_options["y_label_font_size"] != None:
+        if self._chart_options["y_label_font_size"] is not None:
             self._ax.set_ylabel(self._ax.get_ylabel(), fontsize=self._chart_options['y_label_font_size'])
 
         # set chart title
-        if self._chart_options['title'] != None:
+        if self._chart_options['title'] is not None:
             self._ax.set_title(self._sub_title(self._chart_options['title']))
 
         # set fontsize of title
-        if self._chart_options['title_font_size'] != None:
+        if self._chart_options['title_font_size'] is not None:
             self._ax.set_title(self._ax.get_title(), fontsize=self._chart_options['title_font_size'])
 
         # check and set x_tick_format
         fmtX = None
 
-        if self._chart_options["x_tick_format"] != None and self._chart_options["x_tick_format"].find("%") >= 0:
+        if self._chart_options["x_tick_format"] is not None and self._chart_options["x_tick_format"].find("%") >= 0:
             fmtX = mdates.DateFormatter(self._chart_options["x_tick_format"])
-        elif self._chart_options["x_tick_format"] != None:
+        elif self._chart_options["x_tick_format"] is not None:
             formatting = self._add_x_to_formatting_for_matplotlib(self._chart_options["x_tick_format"])
             fmtX = StrMethodFormatter(formatting)
 
-        if fmtX != None:
+        if fmtX is not None:
             self._ax.xaxis.set_major_formatter(fmtX)
 
         # check and set y_tick_format
         fmtY = None
 
-        if self._chart_options["y_tick_format"] != None and self._chart_options["y_tick_format"].find("%") >= 0:
+        if self._chart_options["y_tick_format"] is not None and self._chart_options["y_tick_format"].find("%") >= 0:
             fmtY = mdates.DateFormatter(self._chart_options["y_tick_format"])
-        elif self._chart_options["y_tick_format"] != None:
+        elif self._chart_options["y_tick_format"] is not None:
             formatting = self._add_x_to_formatting_for_matplotlib(self._chart_options["y_tick_format"])
             fmtY = StrMethodFormatter(formatting)
 
-        if fmtY != None:
+        if fmtY is not None:
             self._ax.yaxis.set_major_formatter(fmtY)
 
     def _sub_title(self, text):
 
-        if self._chart_options['dateformat'] == None:
+        if self._chart_options['dateformat'] is None:
             text = text.replace("<maxdatetime>", self._dates["max"])
             text = text.replace("<mindatetime>", self._dates["min"])
             text = text.replace("<currentdatetime>", self._dates["current"])
@@ -561,7 +576,7 @@ class _base_writer:
         unique_dates = self._video_df_base[self.timeseries_col].unique()
 
         ## get times per frame.
-        if not time_in_seconds == None:
+        if not time_in_seconds is None:
             total_frames = time_in_seconds * fps
             frames_per_image = int(total_frames / len(unique_dates))
         else:
@@ -585,7 +600,7 @@ class _base_writer:
         assert self._chart_options != {}, "Please set chart options first"
         assert "unique_dates" in self._video_options.keys(), "Please set video options first"
 
-        if frame_no == None:
+        if frame_no is None:
             frame_no = np.random.randint(0, len(self._video_options["unique_dates"]) - 1)
 
         df_date = self._get_date_df(frame_no)
@@ -629,7 +644,7 @@ class _base_writer:
 
             self._write_extra_frames(i, img, df_date)
 
-            if limit_frames != None:
+            if limit_frames is not None:
                 if self._video_options['looptimes'] > limit_frames:
                     print("HERE")
                     break
@@ -808,9 +823,11 @@ class _base_writer:
 
         return temp_df
 
-    def _add_text_values(self, data, fontdict={"size": "large", "color": "#F6F6F6"}, formatting=None):
+    def _add_text_values(self, data, fontdict=None, formatting=None):
 
         # if float(label_txt) != 0:
+        if fontdict is None:
+            fontdict = {"size": "large", "color": "#F6F6F6"}
         fonts = {}
 
         if self._chart_options["convert_bar_to_image"]:
@@ -824,7 +841,7 @@ class _base_writer:
             label_txt = data[i]
 
             # format data
-            if self._chart_options["x_tick_format"] != None:
+            if self._chart_options["x_tick_format"] is not None:
                 label_txt = self._chart_options["x_tick_format"].format(label_txt)
 
             ext = self._ax.get_window_extent()
@@ -897,13 +914,13 @@ class BarWriter(_base_writer):
 
         # get dates for title
         self._dates["current"] = df_date[self.timeseries_col].max()
-        if self._window_back != None:
+        if self._window_back is not None:
             self._dates["window"] = df_date[self.timeseries_col].max() - pd.to_timedelta(self._window_back)
 
         # get plot
         self._fig = plt.figure(figsize=self._chart_options["figsize"], dpi=self._chart_options["dpi"])
 
-        if self._chart_options["border_size"] == None:
+        if self._chart_options["border_size"] is None:
             border = False
             self._ax = sns.barplot(y=self.category_col,
                                    x=self.value_col,
@@ -972,7 +989,7 @@ class BarWriter(_base_writer):
 
             # new_bars = blank.astype(np.uint8).copy()
 
-        if self._chart_options["use_data_labels"] != None:
+        if self._chart_options["use_data_labels"] is not None:
             lst = list(df_date[self.value_col])
 
             fonts = self._add_text_values(lst)
@@ -1003,9 +1020,11 @@ class BarWriter(_base_writer):
 
         return nump
 
-    def _draw_text(self, img, font_list={}, stroke=None):
+    def _draw_text(self, img, font_list=None, stroke=None):
         ## used to draw text onto image
 
+        if font_list is None:
+            font_list = {}
         h, w, _ = img.shape
 
         pil_img = PIL.Image.fromarray(img)
@@ -1020,7 +1039,7 @@ class BarWriter(_base_writer):
             font_loc = self._ax.transData.transform(v.get_position())
             font_loc[1] = (h - font_loc[1]) - (v.get_window_extent().extents[3] - v.get_window_extent().extents[1]) / 2
             if v.get_ha() == "right":
-                font_loc[0] = font_loc[0] - ((v.get_window_extent().extents[2] - v.get_window_extent().extents[0]))
+                font_loc[0] = font_loc[0] - (v.get_window_extent().extents[2] - v.get_window_extent().extents[0])
 
             size = int(v.get_fontsize() * 1.15)
 
@@ -1102,7 +1121,7 @@ class LineWriter(_base_writer):
         :param limit_frames: To limit frames to x number for testing i.e 20 will only render the first 20 frames.
         """
         assert self._video_options != {}, "Please set video settings first"
-        assert limit_frames == None or type(limit_frames) == int, "limit_frames is not None or Int"
+        assert limit_frames is None or type(limit_frames) == int, "limit_frames is not None or Int"
 
         self._video_options["looptimes"] = 0
         self._video_options['starttime'] = datetime.datetime.now()
@@ -1125,7 +1144,7 @@ class LineWriter(_base_writer):
             out = self._write_extra_frames(i, out, img, self._video_df)
 
             # check if early stopping
-            if limit_frames != None:
+            if limit_frames is not None:
                 if self._video_options['looptimes'] > limit_frames:
                     break
 
@@ -1162,13 +1181,13 @@ class LineWriter(_base_writer):
     def test_chart(self, frame_no=None, as_pil=True):
         """
         Use prior to video creation to test output.
+        :param as_pil:
         :param frame_no: (int / None) if None a random position on the timeline is selected.
-        :param out_type: (bool) True outputs a PIL Image False outputs a np.array
         :return:
         """
         assert self._video_options != {}, "Please set video settings first"
 
-        if frame_no == None:
+        if frame_no is None:
             frame_no = np.random.randint(0, len(self._video_options["unique_dates"]) - 1)
 
         self._get_chart(self._video_df)

@@ -7,9 +7,7 @@ import numpy as np
 import seaborn as sns
 import cv2
 
-
 import inspect
-
 
 
 def convert(seconds):
@@ -34,8 +32,7 @@ def hasNumbers(inputString):
 
 
 def get_pallete(as_pil=True):
-
-    #used to draw palette options
+    # used to draw palette options
 
     palettes = ['viridis', 'plasma', 'inferno', 'magma', 'cividis', 'Greys', 'Purples', 'Blues', 'Greens', 'Oranges',
                 'Reds', 'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn',
@@ -66,7 +63,6 @@ def get_pallete(as_pil=True):
 
 
 def get_np_pallette(pal):
-
     palette = sns.color_palette(pal, n_colors=10)
     for i, x in enumerate(palette):
         base = np.ones([15, 100, 3]).astype(np.uint8)
@@ -81,7 +77,6 @@ def get_np_pallette(pal):
 
 
 def pad_arr(img, width, fill_val):
-
     base = np.zeros([x + (width * 2) if i <= 1 else x for i, x in enumerate(img.shape)])
     base[width:base.shape[0] - width, width:base.shape[1] - width, :] = img
     return base.astype(np.uint8)
@@ -95,8 +90,9 @@ def write_text(text, img):
     img_rot = cv2.rotate(img1, cv2.ROTATE_90_CLOCKWISE)
     return img_rot
 
+
 def tick_transform(x, pos):
-        return '${:,.1f}M'.format(x * 1e-6)
+    return '${:,.1f}M'.format(x * 1e-6)
 
 
 def trim_img(img):
@@ -111,22 +107,21 @@ def trim_img(img):
 
         return img[w_min:w_max, h_min:h_max, :]
     except:
-        return img[:,:,::-1]
+        return img[:, :, ::-1]
 
 
 def gather_image_and_rough_reshape(image_dict, w, h, items, width, keys):
-
     new_img_dict = {}
 
-    if image_dict == None:
+    if image_dict is None:
         image_dict = {}
 
-    #add missing keys
+    # add missing keys
     for unique in keys:
         if unique not in image_dict.keys():
             image_dict[unique] = None
 
-    #rough reshape
+    # rough reshape
 
     try:
         for k, v in image_dict.items():
@@ -135,8 +130,9 @@ def gather_image_and_rough_reshape(image_dict, w, h, items, width, keys):
 
             # defualt to error image if not found
             if type(img) != np.ndarray:
-                #get error image if img not found.
-                img = cv2.imread("/".join(importlib.util.find_spec("progplot").origin.split("/")[:-1]) + "/error.png", cv2.IMREAD_UNCHANGED)
+                # get error image if img not found.
+                img = cv2.imread("/".join(importlib.util.find_spec("progplot").origin.split("/")[:-1]) + "/error.png",
+                                 cv2.IMREAD_UNCHANGED)
 
             img = trim_img(img)
 
@@ -144,7 +140,7 @@ def gather_image_and_rough_reshape(image_dict, w, h, items, width, keys):
             roughsize = (h / items) * .8
 
             img = cv2.resize(img, dsize=(int(roughsize * ratio), int(roughsize)), fx=0, fy=0,
-                                         interpolation=cv2.INTER_AREA)
+                             interpolation=cv2.INTER_AREA)
             base_img = img
 
             while base_img.shape[1] < width:
@@ -160,7 +156,6 @@ def gather_image_and_rough_reshape(image_dict, w, h, items, width, keys):
 
 
 def get_actual_size(pt0, pt1, img):
-
     ratio = img.shape[1] / img.shape[0]
 
     height = pt0[1] - pt1[1]
@@ -172,7 +167,6 @@ def get_actual_size(pt0, pt1, img):
 
 
 def remove_rects_get_pos(ax, fig):
-
     rect_dict = {}
 
     w, h = fig.canvas.get_width_height()
@@ -180,72 +174,89 @@ def remove_rects_get_pos(ax, fig):
     for i, (rect, label) in enumerate(zip(ax.patches, ax.get_yticklabels())):
         rect.set_visible(False)
         rect_dict[label.get_text().strip()] = [(int(rect.get_window_extent().x0), int(h - rect.get_window_extent().y0)),
-                                       (int(rect.get_window_extent().x1), int(h - rect.get_window_extent().y1))]
+                                               (int(rect.get_window_extent().x1), int(h - rect.get_window_extent().y1)),ax.bbox.x0]
     return ax, fig, rect_dict
 
 
 def get_bar_appended_chart(cht_img, rect_dict, image_dict, add_rect=False, rect_width=3, rect_colour=(124, 124, 124)):
+    for k, v in rect_dict.items() :
+        if v[1][0] >= v[2]:
+            if v[0][0] <= v[2]:
+                v[0] = (int(v[2]),v[0][1])
 
-    for k, v in rect_dict.items():
-        # get the image in the shape of the rect from matplotlib- duplicating the image to match width while preserving height
+            # get the image in the shape of the rect from matplotlib- duplicating the image to match width while preserving height
 
-        # check if image in dict
-        try:
-            single_bar_img = image_dict[k]
-        except:
-            #used if key not found - will default to error.png
-            single_bar_img = None
-
-        #if type(single_bar_img) != np.ndarray:
-        #    single_bar_img = cv2.imread("/".join(importlib.util.find_spec("progplot").origin.split("/")[:-1]) + "/error.png", cv2.IMREAD_UNCHANGED)
-        #    single_bar_img = trim_img(single_bar_img)
-
-        bar_img = get_actual_size(v[0], v[1], single_bar_img)
-
-        # if jpg overlay image.
-        if bar_img.shape[2] == 3:
+            # check if image in dict
             try:
-                cht_img = cht_img.copy()
-                cht_img[v[1][1]:v[0][1], v[0][0]:v[1][0], :] = bar_img
-            except ValueError as e:
-                cht_img = cht_img.copy()
-                cht_img[v[1][1]:v[0][1], v[0][0]:v[1][0], :] = bar_img
-        # if png
+                single_bar_img = image_dict[k]
+            except:
+                # used if key not found - will default to error.png
+                single_bar_img = None
 
-        else:
-            # set alpha
-            h, w, _ = cht_img.shape
-            alpha = np.zeros((h, w))
+            # if type(single_bar_img) != np.ndarray:
+            #    single_bar_img = cv2.imread("/".join(importlib.util.find_spec("progplot").origin.split("/")[:-1]) + "/error.png", cv2.IMREAD_UNCHANGED)
+            #    single_bar_img = trim_img(single_bar_img)
 
-            alpha = try_merge(alpha, bar_img[:, :, 3], v)
+            bar_img = get_actual_size(v[0], v[1], single_bar_img)
 
-            #alpha[v[1][1]:v[0][1], v[0][0]:v[1][0]] = bar_img[:, :, 3]
-            alpha = alpha.astype(float) / 255
-            alpha = np.stack((alpha,) * 3, axis=-1)
+            # if jpg overlay image.
+            if bar_img.shape[1] == 0:
+                pass
 
-            # set foreground
-            foreground = np.zeros(cht_img.shape)
+            elif bar_img.shape[2] == 3:
+                try:
+                    cht_img = cht_img.copy()
+                    cht_img[v[1][1]:v[0][1], v[0][0]:v[1][0], :] = bar_img
+                except ValueError as e:
+                    cht_img = cht_img.copy()
+                    cht_img[v[1][1]:v[0][1], v[0][0]:v[1][0], :] = bar_img
+            # if png
 
-            foreground = try_merge(foreground, bar_img[:, :, :3], v, True)
-            #foreground[v[1][1]:v[0][1], v[0][0]:v[1][0], :] = bar_img[:, :, :3]
+            else:
+                # set alpha
+                h, w, _ = cht_img.shape
+                alpha = np.zeros((h, w))
 
-            foreground = foreground.astype(float)
-            foreground = foreground[:, :, ::-1]
+                alpha = try_merge(alpha, bar_img[:, :, 3], v)
 
-            _chart_img = cht_img.astype(float)
+                # alpha[v[1][1]:v[0][1], v[0][0]:v[1][0]] = bar_img[:, :, 3]
+                alpha = alpha.astype(float) / 255
+                alpha = np.stack((alpha,) * 3, axis=-1)
 
-            cht_img = (_chart_img * (1 - alpha)) + (foreground * (alpha))
+                # set foreground
+                foreground = np.zeros(cht_img.shape)
 
-        if add_rect:
-            if v[0][0] < cht_img.shape[1]*.4:
-                cht_img = cv2.rectangle(cht_img.astype(np.uint8), v[0], v[1], rect_colour, rect_width)
+                foreground = try_merge(foreground, bar_img[:, :, :3], v, True)
+                # foreground[v[1][1]:v[0][1], v[0][0]:v[1][0], :] = bar_img[:, :, :3]
+
+                foreground = foreground.astype(float)
+                foreground = foreground[:, :, ::-1]
+
+                _chart_img = cht_img.astype(float)
+
+                cht_img = (_chart_img * (1 - alpha)) + (foreground * alpha)
+
+            if add_rect:
+                if v[0][0] < cht_img.shape[1] * .4 and v[0][0] != v[1][0]:
+                    v[0],v[1] = tuple(v[0]),tuple(v[1])
+                    cht_img = cv2.rectangle(cht_img.astype(np.uint8), v[0], v[1], rect_colour, rect_width)
 
     if cht_img.dtype != np.uint8:
         cht_img = cht_img.astype(np.uint8)
 
     return cht_img
 
-def try_merge(img1,img,v,double=False):
+
+def try_merge(img1, img, v, double=False):
+
+    oldval = v.copy()
+
+    if oldval[0][0] < 0:
+        img = img[:,img.shape[1]+oldval[0][0]:]
+
+    v[0] = [x if x>=0 else 0 for x in v[0]]
+    v[1] = [x if x>=0 else 0 for x in v[1]]
+
 
     if not double:
         try:
@@ -255,58 +266,59 @@ def try_merge(img1,img,v,double=False):
             pass
 
         try:
-            img1[v[1][1]:v[0][1], v[0][0]:v[1][0]-1] = img
+            img1[v[1][1]:v[0][1], v[0][0]:v[1][0] - 1] = img
             return img1
         except:
             pass
 
         try:
-            img1[v[1][1]:v[0][1], v[0][0]:v[1][0]+1] = img
+            img1[v[1][1]:v[0][1], v[0][0]:v[1][0] + 1] = img
             return img1
         except:
             pass
 
         try:
-            img1[v[1][1]:v[0][1], v[0][0]:v[1][0]-2] = img
+            img1[v[1][1]:v[0][1], v[0][0]:v[1][0] - 2] = img
             return img1
         except:
             pass
 
         try:
-            img1[v[1][1]:v[0][1], v[0][0]:v[1][0]+2] = img
+            img1[v[1][1]:v[0][1], v[0][0]:v[1][0] + 2] = img
             return img1
         except:
             pass
     else:
         try:
-            img1[v[1][1]:v[0][1], v[0][0]:v[1][0],:] = img
+            img1[v[1][1]:v[0][1], v[0][0]:v[1][0], :] = img
             return img1
         except:
             pass
 
         try:
-            img1[v[1][1]:v[0][1], v[0][0]:v[1][0]-1,:] = img
+            img1[v[1][1]:v[0][1], v[0][0]:v[1][0] - 1, :] = img
             return img1
         except:
             pass
 
         try:
-            img1[v[1][1]:v[0][1], v[0][0]:v[1][0]+1,:] = img
+            img1[v[1][1]:v[0][1], v[0][0]:v[1][0] + 1, :] = img
             return img1
         except:
             pass
         try:
-            img1[v[1][1]:v[0][1], v[0][0]:v[1][0]-2,:] = img
+            img1[v[1][1]:v[0][1], v[0][0]:v[1][0] - 2, :] = img
             return img1
         except:
             pass
 
         try:
-            img1[v[1][1]:v[0][1], v[0][0]:v[1][0]+2,:] = img
+            img1[v[1][1]:v[0][1], v[0][0]:v[1][0] + 2, :] = img
             return img1
         except:
             pass
-    x=""
+    x = ""
+
 
 def convert_bar(plt, ax, fig, images_dict):
     """
@@ -329,10 +341,9 @@ def convert_bar(plt, ax, fig, images_dict):
     ax, fig, rect_dict = remove_rects_get_pos(ax, fig)
     can = SubCan(fig)
     chart_img = can.get_arr()[:, :, :3]
-    chart_img = get_bar_appended_chart(chart_img, rect_dict, image_dict, True, 2,(30,30,30))
+    chart_img = get_bar_appended_chart(chart_img, rect_dict, image_dict, True, 2, (30, 30, 30))
     plt.close(fig)
     return PIL.Image.fromarray(chart_img)
-
 
 
 class SubCan(matplotlib.backends.backend_agg.FigureCanvasAgg):
@@ -343,7 +354,6 @@ class SubCan(matplotlib.backends.backend_agg.FigureCanvasAgg):
     def get_arr(self, *args,
                 metadata=None, pil_kwargs=None,
                 **kwargs):
-
         buf, size = self.print_to_buffer()
 
         return np.frombuffer(buf, np.uint8).reshape((size[1], size[0], 4))
