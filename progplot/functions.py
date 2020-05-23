@@ -115,6 +115,7 @@ def trim_img(img):
 
 
 def gather_image_and_rough_reshape(image_dict, w, h, items, width, keys):
+
     new_img_dict = {}
 
     if image_dict == None:
@@ -134,11 +135,14 @@ def gather_image_and_rough_reshape(image_dict, w, h, items, width, keys):
 
             # defualt to error image if not found
             if type(img) != np.ndarray:
+                #get error image if img not found.
                 img = cv2.imread("/".join(importlib.util.find_spec("progplot").origin.split("/")[:-1]) + "/error.png", cv2.IMREAD_UNCHANGED)
-                if img == None:
+
+                if type(img) != np.ndarray:
                     img = cv2.imread(
                         "/".join(importlib.util.find_spec("progplot").origin.split("/")[:-1]) + "/error.png",
                         cv2.IMREAD_UNCHANGED)
+
             img = trim_img(img)
 
             ratio = img.shape[1] / img.shape[0]
@@ -152,6 +156,7 @@ def gather_image_and_rough_reshape(image_dict, w, h, items, width, keys):
                 base_img = np.hstack([base_img, img])
 
             new_img_dict[k.strip()] = base_img
+
     except Exception as e:
         print(e)
         return {}
@@ -194,7 +199,6 @@ def get_bar_appended_chart(cht_img, rect_dict, image_dict, add_rect=False, rect_
             single_bar_img = image_dict[k]
         except:
             #used if key not found - will default to error.png
-            pass
             single_bar_img = None
 
         #if type(single_bar_img) != np.ndarray:
