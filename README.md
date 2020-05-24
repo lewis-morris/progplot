@@ -42,6 +42,7 @@ Animated
 
 [COVID-19 Timeseries](https://www.kaggle.com/lewisgmorris/easy-time-series-animation)
 
-[Olympic medals Timeseries + more](https://www.kaggle.com/lewisgmorris/olympic-timeseries-animation_)
+[Olympic medals Timeseries + more](https://www.kaggle.com/lewisgmorris/olympic-timeseries-animation)
 
+[Boston Crimes Timeseries](https://www.kaggle.com/lewisgmorris/crimes-timeseries-animation)
 
