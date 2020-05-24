@@ -710,7 +710,7 @@ class _base_writer:
         if show_html:
             self.show_gif()
 
-    def show_video(self):
+    def show_video(self,width=600):
         """
         Shows video in Jupyter
         :return: HTML
@@ -718,7 +718,7 @@ class _base_writer:
         assert type(self._last_video_save) == str, "Video not rendered"
 
         try:
-            return HTML(f"""<video controls>
+            return HTML(f"""<video width='{width}' controls>
                       <source src={self._video_options["video_file_name"]} type="video/mp4">
                       </video>
                     """)
