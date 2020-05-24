@@ -303,15 +303,18 @@ class _base_writer:
 
             # if % then set to x% lower than min data value
             if lower.find("%") == -1:
-                self._ax.set_xlim(float(lower), self._ax.get_xlim()[1])
+                self._ax.set_xlim((float(lower), self._ax.get_xlim()[1]),auto=False)
             else:
                 lower = float(lower.replace("%", ""))/100
                 min_val = df[df[self.value_col] != 0][self.value_col].min()
                 if type(min_val) == np.nan:
                     min_val = 0
                 min_val = min_val - (min_val * lower)
-                min_val = self._rounddown(min_val, self._get_ax_diff())
-                self._ax.set_xlim(min_val, self._ax.get_xlim()[1])
+                #min_val = self._rounddown(min_val, self._get_ax_diff())
+                self._ax.set_xlim((min_val, self._ax.get_xlim()[1]),auto=False)
+
+            self._ax.xaxis.set_major_locator(plt.MaxNLocator(6, symmetric=False, prune="both"))
+        #self._ax.autoscale()
 
     def set_chart_options(self, use_top_x=None, display_top_x=None, title=None, title_font_size=None, dateformat=None,
                           use_data_labels="end", x_tick_format=None, y_tick_format=None, y_label=True,
@@ -398,6 +401,8 @@ class _base_writer:
         :param image_dict (dictionary) Used to map images to categories on the bargraph - format needs to be {k (categorical value): v (image path)} i.e {"test":"./test.jpg"}
 
         :param squeeze_lower_x (str / None) - used to increase the lowerbound x tick label. Useful if the data values get very high as bar will start at 0.
+
+        **NOTE THAT USING % CAN CURRENTLY CAUSE CHOPPY PLAYBACK**
 
         > None - x tick label values are automatically assigned by matplotlib
         > "xx%" - squeeze the value to xx% lower than the minimum data value i.e "20%"
@@ -868,7 +873,7 @@ class _base_writer:
 
             elif self._chart_options["use_data_labels"] == "end":
 
-                if rect.get_bbox().x1 >= self._ax.get_window_extent()._bbox.x0:
+                if rect.get_bbox().x1 >= self._ax.get_window_extent().transformed(rect._transform.inverted()).x0:
                     txt = self._ax.text(xloc_end_bar, yloc_middle_bar, label_txt, verticalalignment='center',
                                         horizontalalignment="left",
                                         fontdict=fontdict)
@@ -883,6 +888,7 @@ class _base_writer:
                     txt.set_visible(False)
                     txt = self._ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
                                         horizontalalignment="right", fontdict=fontdict)
+
 
                 if txt.get_window_extent().x0 == 0:
                     pass
@@ -945,17 +951,6 @@ class BarWriter(_base_writer):
 
         # set xlim if needs to be higher
         self._set_x_lim(df_date)
-
-        ##squeeze values
-        # minn = np.min(df_date[self.value_col]) * .9
-        # if minn < 0:
-        #    minn = 0
-        # maxx = np.max(df_date[self.value_col]) * 1.07#
-
-        # if minn != maxx :
-        #    self._ax.set_xlim(minn, maxx)
-
-        # self._ax.autoscale(enable=True, axis="x", tight=True)
 
         # set line to 0 if no value
         [x.set_linewidth(0) for x in self._ax.get_children() if

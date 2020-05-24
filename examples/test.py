@@ -70,16 +70,13 @@ image_dict
 
 # %%
 
-bw.set_chart_options(x_tick_format="{:,.2f}",
+bw.set_chart_options(x_tick_format="{:,.0f}",
                      palette="Pastel1",
-                     title="Top 10 Rolling Mean Height <rollingdatetime> to <currentdatetime>",dateformat="%Y",
+                     title="Top 5 Countries by Total Medals from <mindatetime> to <currentdatetime>",dateformat="%Y",
                      y_label="State",
-                     use_top_x=20, display_top_x=10,
+                     use_top_x=20, display_top_x=5,
                      border_size=2, border_colour=(0.3,0.3,0.3),
                      font_scale=1.3,
                      use_data_labels="end",
-
-                     convert_bar_to_image=True,
-                     image_dict=image_dict
-                    )
-bw.test_chart()
+                     squeeze_lower_x="20%") # <----------- HERE either enter the percentace lower than the minimum data value you want the x value to be. OR the absolute value i.e 1000. *** NOTE: Will change to the nearest MAJOR TICK MARK
+bw.test_chart(15)
