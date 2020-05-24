@@ -224,7 +224,11 @@ class _base_writer:
 
         # used to aggregate the data if needed.
 
-        df[self.value_col] = df[self.value_col].astype(float)
+        try:
+            df[self.value_col] = df[self.value_col].astype(float)
+        except ValueError:
+            pass
+
 
         if self.groupby_agg == "sum":
             df = df.groupby([self.timeseries_col, self.category_col]).sum().reset_index()
