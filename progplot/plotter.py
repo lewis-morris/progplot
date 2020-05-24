@@ -893,7 +893,7 @@ class _base_writer:
                     txt = self._ax.text(xloc_inside_bar, yloc_middle_bar, label_txt, verticalalignment='center',
                                         horizontalalignment="right", fontdict=fontdict)
 
-                if txt.get_window_extent().x0 > self._ax.get_window_extent().x0:
+                if txt.get_window_extent().x0 < self._ax.get_window_extent().x0:
                     txt.set_visible(False)
                     txt = self._ax.text(xloc_begg_bar, yloc_middle_bar, label_txt, verticalalignment='center',
                                         horizontalalignment="left", fontdict=fontdict)
