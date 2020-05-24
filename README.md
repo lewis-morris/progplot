@@ -31,8 +31,12 @@ To test if you already have ffmpeg installed:
 
 > Outputs can be both video or gif but for github demostration I've only listed GIF's as they will play on the page. 
 
-Animated 
+Animated Examples 
+
 ![GIF by country](./examples/deathsbycountrywithflag.gif "Animated GIF by countrty ")
+
+![GIF Crimes](https://raw.githubusercontent.com/lewis-morris/progplot/master/examples/total_crimes_by_type.gif "Crimes ")
+
 
 # Usage / Worked examples
 
